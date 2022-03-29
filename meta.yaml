@@ -1,0 +1,35 @@
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  url: https://github.com/raphaeldussin/sloppy/archive/refs/tags/v{{ version }}.tar.gz
+
+build:
+  noarch: python
+  number: 0
+  script: "{{ PYTHON }} -m pip install . -vv"
+
+requirements:
+  host:
+    - pip
+    - python
+  run:
+    - numpy
+    - xarray
+    - dask
+    - netCDF4
+    - numba
+
+about:
+  home: http://github.com/raphaeldussin/sloppy
+  license: GNU General Public License v3 (GPLv3)
+  license_file: LICENSE.txt
+  summary: Build topography file for MOM6 ocean model
+  dev_url: http://github.com/raphaeldussin/sloppy
+  description: |
+    **sloppy** is a Python package for remapping topographic datasets.
+
+extra:
+  recipe-maintainers:
+    - raphaeldussin

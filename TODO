@@ -1,0 +1,13 @@
+
+In compute block:
+
+* use find_nearest_point to subset topo
+* handle peridiodicity
+* build kdtree if lon/lat topo is 2d
+* if number of points used to compute stats < threshold (resolution of model gets similar to input data)
+  then switch to a nearest neighbor using the indices from kdtree
+
+In top-level:
+
+* subset global topo to area covered by model "block"
+* call compute_block on subset of topo
