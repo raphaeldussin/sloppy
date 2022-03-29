@@ -3,7 +3,7 @@ from numba import njit
 from scipy.spatial import KDTree
 
 
-@njit
+@njit()
 def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="median"):
     """Compute the stats (h median/mean, hmin, hmax, h2) for one grid cell
 
@@ -28,11 +28,18 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
 
     """
 
-    ny, nx = data_src.shape
+    out = 1.0e20 * np.ones((5))
+    nx = 0
+    ny = 0
+    if len(data_src.flatten()) < 1:
+        out[4] = 0.0
+        return out
+    else:
+        ny = data_src.shape[-2]
+        nx = data_src.shape[-1]
 
     coords_in_cell = []
     data_src_in_cell = []
-    out = np.empty((5))
 
     for jj in range(ny):
         for ji in range(nx):
@@ -74,14 +81,13 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
     # count number of hits in cell
     npts = len(data_src_in_cell)
 
-    A = np.array(coords_in_cell)
-    d = np.array(data_src_in_cell)
-
     if npts == 0:
         dout = 1.0e20
         dmin = 1.0e20
         dmax = 1.0e20
     else:
+        A = np.array(coords_in_cell)
+        d = np.array(data_src_in_cell)
         dmin = d.min()
         dmax = d.max()
         if method == "median":
@@ -93,7 +99,7 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
         # plane fitting to get the residuals
         fitcoefs, residual2, _, _ = np.linalg.lstsq(A, d)
     else:
-        residual2 = np.array([0.0])
+        residual2 = np.zeros((1))
 
     out[0] = dout
     out[1] = dmin
@@ -145,3 +151,15 @@ def find_nearest_point(lon_src, lat_src, lon_tgt, lat_tgt, tree=None):
         indy = (np.abs(lat_src - lat_tgt)).argmin()
 
     return indx, indy
+
+
+def find_geographical_bounds(lon_c, lat_c):
+    """find the bounding box"""
+
+    # this is the simple case where there is no periodicity to worry about
+    lonmin = lon_c.min()
+    lonmax = lon_c.max()
+    latmin = lat_c.min()
+    latmax = lat_c.max()
+
+    return lonmin, lonmax, latmin, latmax
