@@ -22,7 +22,7 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
         estimation of cell bathy (median/mean). Defaults to median.
     Returns
     -------
-    list
+    np.array containing
         [cell estimated depth, minimum depth in cell, maximum depth in cell, residual of plane fit, number of source points in cell]
 
     """
@@ -31,6 +31,7 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
 
     coords_in_cell = []
     data_src_in_cell = []
+    out = np.empty((5))
 
     for jj in range(ny):
         for ji in range(nx):
@@ -93,4 +94,10 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
     else:
         residual2 = np.array([0.0])
 
-    return dout, dmin, dmax, residual2, npts
+    out[0] = dout
+    out[1] = dmin
+    out[2] = dmax
+    out[3] = residual2[0]
+    out[4] = float(npts)
+
+    return out

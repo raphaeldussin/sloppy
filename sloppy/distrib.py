@@ -32,14 +32,10 @@ def compute_block(
 
             lon_src, lat_src = np.meshgrid(datopo[topolon], datopo[topolat])
 
-            h, hmin, hmax, h2, npts = compute_cell_topo_stats(
+            out = compute_cell_topo_stats(
                 lon_c, lat_c, lon_src, lat_src, datopo[topovar].values
             )
-            # cast all in one array to make things easier in dask
-            h_out[jj, ji, 0] = h
-            h_out[jj, ji, 1] = hmin
-            h_out[jj, ji, 2] = hmax
-            h2_out[jj, ji, 3] = h2
-            h2_out[jj, ji, 4] = float(npts)
+
+            h_out[jj, ji, :] = out
 
             return h_out

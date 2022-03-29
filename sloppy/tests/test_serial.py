@@ -10,16 +10,13 @@ def test_all_points_in_square_cell():
     lon_src, lat_src = np.meshgrid(np.linspace(9, 10, 50), np.linspace(19, 20, 50))
     data_src = 3 + 4 * lon_src + 5 * lat_src + 7 * lon_src * lat_src
 
-    hout, hmin, hmax, h2, npts = compute_cell_topo_stats(
+    out = compute_cell_topo_stats(
         lon_c, lat_c, lon_src, lat_src, data_src
     )
 
-    assert isinstance(hout, float)
-    assert isinstance(hmin, float)
-    assert isinstance(hmax, float)
-    assert isinstance(h2, np.ndarray)
-    assert isinstance(npts, int)
+    assert isinstance(out, np.ndarray)
 
+    npts = out[4]
     assert npts == len(data_src.flatten())
 
 
@@ -32,9 +29,10 @@ def test_all_points_out():
     data_src = 3 + 4 * lon_src + 5 * lat_src + 7 * lon_src * lat_src
 
     # this is not working in numba, weird!!!
-    # hout, hmin, hmax, h2, npts = compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src)
+    out = compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src)
 
-    # assert npts == 0
+    npts = out[4]
+    assert npts == 0
 
 
 def test_distorted_cell():
@@ -45,8 +43,9 @@ def test_distorted_cell():
     lon_src, lat_src = np.meshgrid(np.linspace(9, 10, 50), np.linspace(19, 20, 50))
     data_src = 3 + 4 * lon_src + 5 * lat_src + 7 * lon_src * lat_src
 
-    hout, hmin, hmax, h2, npts = compute_cell_topo_stats(
+    out = compute_cell_topo_stats(
         lon_c, lat_c, lon_src, lat_src, data_src
     )
 
+    npts = out[4]
     assert npts < len(data_src.flatten())
