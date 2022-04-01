@@ -1,6 +1,7 @@
 import numpy as np
 from numba import njit
 from scipy.spatial import KDTree
+from warnings import warn
 
 
 @njit()
@@ -163,3 +164,37 @@ def find_geographical_bounds(lon_c, lat_c):
     latmax = lat_c.max()
 
     return lonmin, lonmax, latmin, latmax
+
+
+def correct_for_poles_j_indices(jmin, jmax):
+    """ make sure that jmin < jmax, this can happen in polar regions """
+
+    if jmin > jmax:
+        warn("flipping j indices")
+
+    jmin_corrected = jmax if jmin > jmax else jmin
+    jmax_corrected = jmin if jmin > jmax else jmax
+
+    return jmin_corrected, jmax_corrected
+
+
+def correct_for_periodicity(imin, imax):
+    """return updated indices if subset is across disjoint regions
+    by using periodicity of longitude to roll array
+
+    Args:
+        imin (int): i-index of SW corner
+        imax (int): i-index of NE corner
+
+    Returns:
+        int: corrected imin and imax and roll for arrays
+    """
+
+    if imin > imax:
+        warn("rolling i indices")
+
+    iroll = -imax if imin > imax else 0
+    imin_corrected = imin-imax if imin > imax else imin
+    imax_corrected = None if imin > imax else imax
+
+    return imin_corrected, imax_corrected, iroll

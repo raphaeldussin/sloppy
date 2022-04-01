@@ -19,3 +19,8 @@ out = compute_block(
     gebco_10x["lon"].values,
     gebco_10x["lat"].values,
 )
+
+import matplotlib.pyplot as plt
+
+plt.figure() ; plt.pcolormesh(out[:,:,0]) ; plt.colorbar() ; plt.show()
+
