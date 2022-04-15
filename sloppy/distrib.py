@@ -20,15 +20,31 @@ def compute_block(
     topo_subset,
     topo_lon_subset,
     topo_lat_subset,
+    is_stereo=False,
+    PROJSTRING=None
 ):
 
     nyb, nxb = lon_model_block.shape  #number of corners = N+1, M+1 number of centers
     h_out = np.empty((nyb-1, nxb-1, 5))
 
-    coords2d = True if len(topo_lon_subset) == 2 else False
+    if is_stereo:
+        if PROJSTRING is not None:
+            from pyproj import CRS, Transformer
+            # create the coordinate reference system
+            crs = CRS.from_proj4(PROJSTRING)
+            # create the projection from lon/lat to x/y
+            proj = Transformer.from_crs(crs.geodetic_crs, crs)
+            # override lon/lat by x/y of CRS
+            lon_model_block, lat_model_block = proj.transform(lon_model_block, lat_model_block)
+            topo_lon_subset, topo_lat_subset = proj.transform(topo_lon_subset, topo_lat_subset)
+
+    coords2d = True if len(topo_lon_subset.shape) == 2 else False
 
     if coords2d:
-        topo_lon_subset360 = np.mod(topo_lon_subset + 360, 360)
+        if not is_stereo:
+            topo_lon_subset360 = np.mod(topo_lon_subset + 360, 360)
+        else:
+            topo_lon_subset360 = topo_lon_subset
         topotree = KDTree(
             list(zip(topo_lon_subset360.flatten(), topo_lat_subset.flatten()))
         )
@@ -55,10 +71,17 @@ def compute_block(
             # this is necessary in polar regions
             jmin, jmax = correct_for_poles_j_indices(jmin, jmax)
             # roll the array if necessary using periodicity
-            imin, imax, iroll = correct_for_periodicity(imin, imax)
+            if not is_stereo:
+                imin, imax, iroll = correct_for_periodicity(imin, imax)
+            else:
+                iroll = 0
 
             # this is for 1d lon/lat on source grid, need to expand to 2d lon/lat
-            topo_subsubset = topo_subset[jmin:jmax, imin:imax]
+            if iroll != 0:
+                topo_subsubset = np.roll(topo_subset, iroll, axis=-1)[jmin:jmax, imin:imax]
+            else:
+                topo_subsubset = topo_subset[jmin:jmax, imin:imax]
+
             if coords2d:
                 lon_subsubset = np.roll(topo_lon_subset, iroll, axis=-1)[jmin:jmax, imin:imax]
                 lat_subsubset = np.roll(topo_lat_subset, iroll, axis=-1)[jmin:jmax, imin:imax]
@@ -70,7 +93,7 @@ def compute_block(
 
             if len(topo_subsubset.flatten()) > 1:
                 out = compute_cell_topo_stats(
-                    lon_c, lat_c, lon_src, lat_src, np.roll(topo_subsubset, iroll, axis=-1)
+                    lon_c, lat_c, lon_src, lat_src, topo_subsubset
                 )
             else:
                 out = np.zeros((5))
