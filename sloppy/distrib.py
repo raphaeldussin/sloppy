@@ -20,23 +20,29 @@ def compute_block(
     topo_subset,
     topo_lon_subset,
     topo_lat_subset,
+    is_carth=False,
     is_stereo=False,
-    PROJSTRING=None
+    PROJSTRING=None,
 ):
 
-    nyb, nxb = lon_model_block.shape  #number of corners = N+1, M+1 number of centers
-    h_out = np.empty((nyb-1, nxb-1, 5))
+    nyb, nxb = lon_model_block.shape  # number of corners = N+1, M+1 number of centers
+    h_out = np.empty((nyb - 1, nxb - 1, 5))
 
     if is_stereo:
         if PROJSTRING is not None:
             from pyproj import CRS, Transformer
+
             # create the coordinate reference system
             crs = CRS.from_proj4(PROJSTRING)
             # create the projection from lon/lat to x/y
             proj = Transformer.from_crs(crs.geodetic_crs, crs)
             # override lon/lat by x/y of CRS
-            lon_model_block, lat_model_block = proj.transform(lon_model_block, lat_model_block)
-            topo_lon_subset, topo_lat_subset = proj.transform(topo_lon_subset, topo_lat_subset)
+            lon_model_block, lat_model_block = proj.transform(
+                lon_model_block, lat_model_block
+            )
+            topo_lon_subset, topo_lat_subset = proj.transform(
+                topo_lon_subset, topo_lat_subset
+            )
 
     coords2d = True if len(topo_lon_subset.shape) == 2 else False
 
@@ -61,11 +67,21 @@ def compute_block(
             lonmin, lonmax, latmin, latmax = find_geographical_bounds(lon_c, lat_c)
             # find index of SW corner in source data
             imin, jmin = find_nearest_point(
-                topo_lon_subset, topo_lat_subset, lonmin, latmin, tree=topotree
+                topo_lon_subset,
+                topo_lat_subset,
+                lonmin,
+                latmin,
+                tree=topotree,
+                is_carth=is_carth,
             )
             # find index of NE corner in source data
             imax, jmax = find_nearest_point(
-                topo_lon_subset, topo_lat_subset, lonmax, latmax, tree=topotree
+                topo_lon_subset,
+                topo_lat_subset,
+                lonmax,
+                latmax,
+                tree=topotree,
+                is_carth=is_carth,
             )
 
             # this is necessary in polar regions
@@ -78,13 +94,19 @@ def compute_block(
 
             # this is for 1d lon/lat on source grid, need to expand to 2d lon/lat
             if iroll != 0:
-                topo_subsubset = np.roll(topo_subset, iroll, axis=-1)[jmin:jmax, imin:imax]
+                topo_subsubset = np.roll(topo_subset, iroll, axis=-1)[
+                    jmin:jmax, imin:imax
+                ]
             else:
                 topo_subsubset = topo_subset[jmin:jmax, imin:imax]
 
             if coords2d:
-                lon_subsubset = np.roll(topo_lon_subset, iroll, axis=-1)[jmin:jmax, imin:imax]
-                lat_subsubset = np.roll(topo_lat_subset, iroll, axis=-1)[jmin:jmax, imin:imax]
+                lon_subsubset = np.roll(topo_lon_subset, iroll, axis=-1)[
+                    jmin:jmax, imin:imax
+                ]
+                lat_subsubset = np.roll(topo_lat_subset, iroll, axis=-1)[
+                    jmin:jmax, imin:imax
+                ]
                 lon_src, lat_src = lon_subsubset, lat_subsubset
             else:
                 lon_subsubset = np.roll(topo_lon_subset, iroll, axis=0)[imin:imax]
@@ -93,7 +115,11 @@ def compute_block(
 
             if len(topo_subsubset.flatten()) > 1:
                 out = compute_cell_topo_stats(
-                    lon_c, lat_c, lon_src, lat_src, topo_subsubset
+                    lon_c,
+                    lat_c,
+                    lon_src,
+                    lat_src,
+                    topo_subsubset,
                 )
             else:
                 out = np.zeros((5))
@@ -103,13 +129,13 @@ def compute_block(
                     f"not enough source points (= {out[4]}/{len(lon_src)}) in cell {lonmin} - {lonmax}/{latmin} - {latmax} \
                       to compute stats at (j,i) = ({jj},{ji}), switching to nearest neighbor"
                 )
-                #print(f"subset of source grid is {imin} - {imax} / {jmin} - {jmax}")
-                #print(lon_src.shape)
-                #print(lat_src.shape)
-                #print(lon_src.min(), lon_src.max())
-                #print(lat_src.min(), lat_src.max())
-                #print(imin, imax)
-                #print(lon_src, lat_src)
+                # print(f"subset of source grid is {imin} - {imax} / {jmin} - {jmax}")
+                # print(lon_src.shape)
+                # print(lat_src.shape)
+                # print(lon_src.min(), lon_src.max())
+                # print(lat_src.min(), lat_src.max())
+                # print(imin, imax)
+                # print(lon_src, lat_src)
                 # TO DO: add nearest neghbors
 
             h_out[jj, ji, :] = out

@@ -72,7 +72,10 @@ def test_find_nearest_point_1d__1():
     ifound, jfound = find_nearest_point(lon_gebco, lat_gebco, 80.0, 60.0)
     assert np.allclose(lon_gebco[ifound], 80.0, rtol=0.01)
     assert np.allclose(lat_gebco[jfound], 60.0, rtol=0.01)
-    # assert 0 == 1
+
+    ifound, jfound = find_nearest_point(lon_gebco, lat_gebco, -80.0, 60.0)
+    assert np.allclose(lon_gebco[ifound], -80.0, rtol=0.01)
+    assert np.allclose(lat_gebco[jfound], 60.0, rtol=0.01)
 
 
 def test_find_nearest_point_2d__1():

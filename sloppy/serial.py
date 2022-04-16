@@ -4,7 +4,6 @@ from scipy.spatial import KDTree
 from warnings import warn
 
 
-@njit()
 def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="median"):
     """Compute the stats (h median/mean, hmin, hmax, h2) for one grid cell
 
@@ -29,16 +28,53 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
 
     """
 
+    # this wrapper is needed to handle edge cases (e.g. no points found,...)
+
     out = 1.0e20 * np.ones((5))
-    nx = 0
-    ny = 0
     if len(data_src.flatten()) < 1:
         out[4] = 0.0
-        return out
     else:
-        ny = data_src.shape[-2]
-        nx = data_src.shape[-1]
+        dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_lowcode(
+            lon_c, lat_c, lon_src, lat_src, data_src, method=method
+        )
 
+        out[0] = dout
+        out[1] = dmin
+        out[2] = dmax
+        out[3] = residual2
+        out[4] = float(npts)
+
+    return out
+
+
+@njit()
+def compute_cell_topo_stats_lowcode(
+    lon_c, lat_c, lon_src, lat_src, data_src, method="median", eps=1e-16
+):
+    """Compute the stats (h median/mean, hmin, hmax, h2) for one grid cell
+
+    Parameters
+    ----------
+    lon_c : np.ndarray
+        2x2 array containing the longitudes of all 4 corners of the cell
+    lat_c : np.ndarray
+        2x2 array containing the latitudes of all 4 corners of the cell
+    lon_src : np.ndarray
+        2d array (ny, nx) containing the longitudes of the source topo data
+    lat_src : np.ndarray
+        2d array (ny, nx) containing the latitudes of the source topo data
+    data_src : np.ndarray
+        2d array (ny, nx) containing the the source topo data
+    method (optional) : string
+        estimation of cell bathy (median/mean). Defaults to median.
+    Returns
+    -------
+    np.array containing
+        [cell estimated depth, minimum depth in cell, maximum depth in cell, residual of plane fit, number of source points in cell]
+
+    """
+
+    ny, nx = data_src.shape[-2:]
     coords_in_cell = []
     data_src_in_cell = []
 
@@ -102,16 +138,10 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
     else:
         residual2 = np.zeros((1))
 
-    out[0] = dout
-    out[1] = dmin
-    out[2] = dmax
-    out[3] = residual2[0]
-    out[4] = float(npts)
-
-    return out
+    return dout, dmin, dmax, residual2[0], npts
 
 
-def find_nearest_point(lon_src, lat_src, lon_tgt, lat_tgt, tree=None):
+def find_nearest_point(lon_src, lat_src, lon_tgt, lat_tgt, tree=None, is_carth=False):
     """Function to find the nearest point on the source grid given a
     value on the target grid
 
@@ -135,9 +165,10 @@ def find_nearest_point(lon_src, lat_src, lon_tgt, lat_tgt, tree=None):
 
     """
 
-    # standardize longitude to positive-definite values
-    lon_src = np.mod(lon_src + 360, 360)
-    lon_tgt = np.mod(lon_tgt + 360, 360)
+    if not is_carth:
+        # standardize longitude to positive-definite values
+        lon_src = np.mod(lon_src + 360, 360)
+        lon_tgt = np.mod(lon_tgt + 360, 360)
 
     # use a kdtree to find indicies if source coordinates are 2-dimensional
     if len(lon_src.shape) == 2:
@@ -167,7 +198,7 @@ def find_geographical_bounds(lon_c, lat_c):
 
 
 def correct_for_poles_j_indices(jmin, jmax):
-    """ make sure that jmin < jmax, this can happen in polar regions """
+    """make sure that jmin < jmax, this can happen in polar regions"""
 
     if jmin > jmax:
         warn("flipping j indices")
@@ -194,7 +225,7 @@ def correct_for_periodicity(imin, imax):
         warn("rolling i indices")
 
     iroll = -imax if imin > imax else 0
-    imin_corrected = imin-imax if imin > imax else imin
+    imin_corrected = imin - imax if imin > imax else imin
     imax_corrected = None if imin > imax else imax
 
     return imin_corrected, imax_corrected, iroll
