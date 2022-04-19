@@ -1,5 +1,6 @@
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
 
 from sloppy.distrib import compute_block
 
@@ -18,9 +19,26 @@ out = compute_block(
     gebco_10x.values,
     gebco_10x["lon"].values,
     gebco_10x["lat"].values,
+    residual=False,
 )
 
-import matplotlib.pyplot as plt
 
-plt.figure() ; plt.pcolormesh(out[:,:,0]) ; plt.colorbar() ; plt.show()
+plt.figure()
+plt.pcolormesh(out[0, :, :])
+plt.colorbar()
+plt.show()
 
+out = compute_block(
+    lon_model,
+    lat_model,
+    gebco_10x.values,
+    gebco_10x["lon"].values,
+    gebco_10x["lat"].values,
+    residual=True,
+)
+
+
+plt.figure()
+plt.pcolormesh(out[3, :, :])
+plt.colorbar()
+plt.show()

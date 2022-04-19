@@ -4,7 +4,9 @@ from scipy.spatial import KDTree
 from warnings import warn
 
 
-def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="median"):
+def compute_cell_topo_stats(
+    lon_c, lat_c, lon_src, lat_src, data_src, method="median", compute_res=True
+):
     """Compute the stats (h median/mean, hmin, hmax, h2) for one grid cell
 
     Parameters
@@ -34,8 +36,14 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
     if len(data_src.flatten()) < 1:
         out[4] = 0.0
     else:
-        dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_lowcode(
-            lon_c, lat_c, lon_src, lat_src, data_src, method=method
+        dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_parallelogram(
+            lon_c,
+            lat_c,
+            lon_src,
+            lat_src,
+            data_src,
+            method=method,
+            compute_res=compute_res,
         )
 
         out[0] = dout
@@ -48,8 +56,15 @@ def compute_cell_topo_stats(lon_c, lat_c, lon_src, lat_src, data_src, method="me
 
 
 @njit()
-def compute_cell_topo_stats_lowcode(
-    lon_c, lat_c, lon_src, lat_src, data_src, method="median", eps=1e-16
+def compute_cell_topo_stats_parallelogram(
+    lon_c,
+    lat_c,
+    lon_src,
+    lat_src,
+    data_src,
+    method="median",
+    eps=1e-16,
+    compute_res=True,
 ):
     """Compute the stats (h median/mean, hmin, hmax, h2) for one grid cell
 
@@ -83,29 +98,26 @@ def compute_cell_topo_stats_lowcode(
 
             # test if point falls in the cell, defined by 4 segments
             lat_lower_bnd = lat_c[0, 0] + (lon_src[jj, ji] - lon_c[0, 0]) * (
-                (lat_c[0, -1] - lat_c[0, 0]) / (lon_c[0, -1] - lon_c[0, 0])
+                (lat_c[0, -1] - lat_c[0, 0])
+                / np.maximum(lon_c[0, -1] - lon_c[0, 0], eps)
             )
 
             if lat_src[jj, ji] >= lat_lower_bnd:
-                lon_right_bnd = (
-                    lon_c[0, -1]
-                    + (lat_src[jj, ji] - lat_c[0, -1])
-                    + ((lon_c[-1, -1] - lon_c[0, -1]) / (lat_c[-1, -1] - lat_c[0, -1]))
+                lon_right_bnd = lon_c[0, -1] + (lat_src[jj, ji] - lat_c[0, -1]) * (
+                    (lon_c[-1, -1] - lon_c[0, -1])
+                    / np.maximum(lat_c[-1, -1] - lat_c[0, -1], eps)
                 )
 
                 if lon_src[jj, ji] <= lon_right_bnd:
-                    lat_upper_bnd = lat_c[-1, 0] + (-lon_src[jj, ji] + lon_c[-1, 0]) * (
-                        (lat_c[-1, -1] - lat_c[-1, 0]) / (lon_c[-1, -1] - lon_c[-1, 0])
+                    lat_upper_bnd = lat_c[-1, 0] + (lon_src[jj, ji] - lon_c[-1, 0]) * (
+                        (lat_c[-1, -1] - lat_c[-1, 0])
+                        / np.maximum(lon_c[-1, -1] - lon_c[-1, 0], eps)
                     )
 
                     if lat_src[jj, ji] <= lat_upper_bnd:
-                        lon_left_bnd = (
-                            lon_c[0, 0]
-                            + (-lat_src[jj, ji] + lat_c[0, 0])
-                            + (
-                                (lon_c[-1, 0] - lon_c[0, 0])
-                                / (lat_c[-1, 0] - lat_c[0, 0])
-                            )
+                        lon_left_bnd = lon_c[0, 0] + (lat_src[jj, ji] - lat_c[0, 0]) * (
+                            (lon_c[-1, 0] - lon_c[0, 0])
+                            / np.maximum(lat_c[-1, 0] - lat_c[0, 0], eps)
                         )
 
                         if lon_src[jj, ji] >= lon_left_bnd:
@@ -132,11 +144,15 @@ def compute_cell_topo_stats_lowcode(
         elif method == "mean":
             dout = d.mean()  # assume identical weights for source cells to start
 
-    if npts >= 3:  # we need at least 3 points to fit a plane
-        # plane fitting to get the residuals
-        fitcoefs, residual2, _, _ = np.linalg.lstsq(A, d)
-    else:
-        residual2 = np.zeros((1))
+    residual2 = np.zeros((1))
+    if compute_res:
+        if npts >= 3:  # we need at least 3 points to fit a plane
+            # plane fitting to get the residuals
+            fitcoefs, residual2, _, _ = np.linalg.lstsq(A, d)
+            if residual2 is None:
+                residual2 = 1.0e20 * np.ones((1))
+            if np.isnan(residual2):
+                residual2 = 1.0e20 * np.ones((1))
 
     return dout, dmin, dmax, residual2[0], npts
 
@@ -229,3 +245,81 @@ def correct_for_periodicity(imin, imax):
     imax_corrected = None if imin > imax else imax
 
     return imin_corrected, imax_corrected, iroll
+
+
+def subset_input_data(
+    lon_c,
+    lat_c,
+    lon_in,
+    lat_in,
+    data_in,
+    is_carth=False,
+    is_stereo=False,
+    coords2d=False,
+    topotree=None,
+):
+    """_summary_
+
+    Args:
+        lon_c (_type_): _description_
+        lat_c (_type_): _description_
+        lon_in (_type_): _description_
+        lat_in (_type_): _description_
+        data_in (_type_): _description_
+        is_carth (bool, optional): _description_. Defaults to False.
+        is_stereo (bool, optional): _description_. Defaults to False.
+        coords2d (bool, optional): _description_. Defaults to False.
+        topotree (_type_, optional): _description_. Defaults to None.
+    """
+
+    # find geographical bounds of model cell
+    lonmin, lonmax, latmin, latmax = find_geographical_bounds(lon_c, lat_c)
+    # find index of SW corner in source data
+    imin, jmin = find_nearest_point(
+        lon_in,
+        lat_in,
+        lonmin,
+        latmin,
+        tree=topotree,
+        is_carth=is_carth,
+    )
+    # find index of NE corner in source data
+    imax, jmax = find_nearest_point(
+        lon_in,
+        lat_in,
+        lonmax,
+        latmax,
+        tree=topotree,
+        is_carth=is_carth,
+    )
+
+    if is_carth:
+        # ensure growing order
+        imin, imax = correct_for_poles_j_indices(imin, imax)
+        jmin, jmax = correct_for_poles_j_indices(jmin, jmax)
+        iroll = 0
+
+        lon_src = lon_in[jmin:jmax, imin:imax]
+        lat_src = lat_in[jmin:jmax, imin:imax]
+    else:
+        jmin, jmax = correct_for_poles_j_indices(jmin, jmax)
+
+        # roll the array if necessary using periodicity
+        imin, imax, iroll = correct_for_periodicity(imin, imax)
+
+        if coords2d:
+            lon_subsubset = np.roll(lon_in, iroll, axis=-1)[jmin:jmax, imin:imax]
+            lat_subsubset = np.roll(lat_in, iroll, axis=-1)[jmin:jmax, imin:imax]
+            lon_src, lat_src = lon_subsubset, lat_subsubset
+        else:
+            lon_subsubset = np.roll(lon_in, iroll, axis=0)[imin:imax]
+            lat_subsubset = lat_in[jmin:jmax]
+            lon_src, lat_src = np.meshgrid(lon_subsubset, lat_subsubset)
+
+    # this is for 1d lon/lat on source grid, need to expand to 2d lon/lat
+    if iroll != 0:
+        topo_subsubset = np.roll(data_in, iroll, axis=-1)[jmin:jmax, imin:imax]
+    else:
+        topo_subsubset = data_in[jmin:jmax, imin:imax]
+
+    return lon_src, lat_src, topo_subsubset
