@@ -58,6 +58,7 @@ out = compute_block(
     is_carth=True,
     PROJSTRING=PROJSTRING,
     residual=False,
+    algo="fast",
 )
 
 import matplotlib.pyplot as plt
@@ -95,6 +96,7 @@ out = compute_block(
     is_carth=True,
     PROJSTRING=PROJSTRING,
     residual=False,
+    algo="sturdy",
 )
 
 plt.figure()

@@ -21,6 +21,7 @@ def compute_block(
     is_stereo=False,
     PROJSTRING=None,
     residual=True,
+    algo="fast",
 ):
 
     nyb, nxb = lon_model_block.shape  # number of corners = N+1, M+1 number of centers
@@ -83,38 +84,10 @@ def compute_block(
                     lat_src,
                     topo_subsubset,
                     compute_res=residual,
+                    algo=algo,
                 )
             else:
                 out = np.zeros((5))
-
-            # if out[4] < 1:
-            # print(lon_src.shape)
-            # print(f" ntotal pts = len(lat_src)")
-            # import matplotlib.pyplot as plt
-            # print(lon_c)
-            # print(lat_c)
-            # plt.figure()
-            # plt.plot(lon_c, lat_c, "ro")
-            # plt.plot(lon_src, lat_src, "ko")
-            # plt.show()
-            # print()
-            # print(lon_src.min(), lon_src.max())
-            # print(lat_src.min(), lat_src.max())
-            # print(lon_c)
-            # print(lat_c)
-            # if out[4] <= 4:
-            #    warn(
-            #        f"not enough source points (= {out[4]}/{len(lon_src)}) in cell {lonmin} - {lonmax}/{latmin} - {latmax} \
-            #          to compute stats at (j,i) = ({jj},{ji}), switching to nearest neighbor"
-            #    )
-            # print(f"subset of source grid is {imin} - {imax} / {jmin} - {jmax}")
-            # print(lon_src.shape)
-            # print(lat_src.shape)
-            # print(lon_src.min(), lon_src.max())
-            # print(lat_src.min(), lat_src.max())
-            # print(imin, imax)
-            # print(lon_src, lat_src)
-            # TO DO: add nearest neghbors
 
             h_out[:, jj, ji] = out
 

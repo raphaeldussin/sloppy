@@ -20,6 +20,7 @@ out = compute_block(
     gebco_10x["lon"].values,
     gebco_10x["lat"].values,
     residual=False,
+    algo="fast",
 )
 
 
@@ -35,6 +36,7 @@ out = compute_block(
     gebco_10x["lon"].values,
     gebco_10x["lat"].values,
     residual=True,
+    algo="sturdy",
 )
 
 
