@@ -57,29 +57,62 @@ def compute_cell_topo_stats(
         return out
 
     # detect singular points
-    npole = False
-    spole = False
+    n_singular_pts = 0
+    sing_top = False
+    sing_bot = False
+    sing_left = False
+    sing_right = False
 
     # upper point is singular
     if np.allclose(lon_c[-1, -1], lon_c[-1, 0], atol=tol) and np.allclose(
         lat_c[-1, -1], lat_c[-1, 0], atol=tol
     ):
-        npole = True
+        n_singular_pts += 1
+        sing_top = True
+
     # lower point is singular
     if np.allclose(lon_c[0, -1], lon_c[0, 0], atol=tol) and np.allclose(
         lat_c[0, -1], lat_c[0, 0], atol=tol
     ):
-        spole = True
+        n_singular_pts += 1
+        sing_bot = True
 
-    use_triangle = True if any([npole, spole]) else False
-    use_segment = True if all([npole, spole]) else False
+    # left point is singular
+    if np.allclose(lon_c[-1, 0], lon_c[0, 0], atol=tol) and np.allclose(
+        lat_c[-1, 0], lat_c[0, 0], atol=tol
+    ):
+        n_singular_pts += 1
+        sing_left = True
 
-    if use_triangle:
-        print("triangle detected")
-        out = np.array([42.0, 42.0, 42.0, 42.0, 42.0])
-    else:
+    # right point is singular
+    if np.allclose(lon_c[-1, -1], lon_c[0, -1], atol=tol) and np.allclose(
+        lat_c[-1, -1], lat_c[0, -1], atol=tol
+    ):
+        n_singular_pts += 1
+        sing_right = True
+
+    if n_singular_pts >= 2:
+        warn("singular point or segment detected!!!")
+        dout, dmin, dmax, residual2, npts = 1.0e36, 1.0e36, 1.0e36, 1.0e36, 0
+    elif n_singular_pts == 1:
+        # use triangle algo
+        dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_triangle(
+            lon_c,
+            lat_c,
+            lon_src,
+            lat_src,
+            data_src,
+            sing_top=sing_top,
+            sing_bot=sing_bot,
+            sing_left=sing_left,
+            sing_right=sing_right,
+            method=method,
+            compute_res=compute_res,
+        )
+    elif n_singular_pts == 0:
         # reorder points
         lon_c, lat_c = reorder_bounds(lon_c, lat_c)
+        # use parallelogram algo
         dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_parallelogram(
             lon_c,
             lat_c,
@@ -90,34 +123,109 @@ def compute_cell_topo_stats(
             compute_res=compute_res,
             algo=algo,
         )
+    else:
+        raise ValueError("you should not arrive here")
 
-        out[0] = dout
-        out[1] = dmin
-        out[2] = dmax
-        out[3] = residual2
-        out[4] = float(npts)
+    out[0] = dout
+    out[1] = dmin
+    out[2] = dmax
+    out[3] = residual2
+    out[4] = float(npts)
 
     return out
 
 
-# def compute_cell_topo_stats_triangle(lon_summits, lat_summits, lon_src, lat_src, data_src, method="median", compute_res=True):
-#    """
-#
-#    Args:
-#        lon_summits (_type_): _description_
-#        lat_summits (_type_): _description_
-#        lon_src (_type_): _description_
-#        lat_src (_type_): _description_
-#        data_src (_type_): _description_
-#        method (str, optional): _description_. Defaults to "median".
-#        compute_res (bool, optional): _description_. Defaults to True.
-#
-#    Raises:
-#        ValueError: _description_
-#
-#    Returns:
-#        _type_: _description_
-#    """
+@njit
+def compute_cell_topo_stats_triangle(
+    lon_c,
+    lat_c,
+    lon_src,
+    lat_src,
+    data_src,
+    sing_top=False,
+    sing_bot=False,
+    sing_left=False,
+    sing_right=False,
+    method="median",
+    compute_res=True,
+    rtol=0.001,
+):
+
+    # first build triangle from degenerated parallelogram
+    if sing_top:
+        x1 = 0.5 * (lon_c[-1, 0] + lon_c[-1, -1])
+        y1 = 0.5 * (lat_c[-1, 0] + lat_c[-1, -1])
+        x2, x3 = lon_c[0, :]
+        y2, y3 = lat_c[0, :]
+
+    if sing_bot:
+        x1 = 0.5 * (lon_c[0, 0] + lon_c[0, -1])
+        y1 = 0.5 * (lat_c[0, 0] + lat_c[0, -1])
+        x2, x3 = lon_c[-1, :]
+        y2, y3 = lat_c[-1, :]
+
+    if sing_left:
+        x1 = 0.5 * (lon_c[0, 0] + lon_c[-1, 0])
+        y1 = 0.5 * (lat_c[0, 0] + lat_c[-1, 0])
+        x2, x3 = lon_c[:, -1]
+        y2, y3 = lat_c[:, -1]
+
+    if sing_right:
+        x1 = 0.5 * (lon_c[0, -1] + lon_c[-1, -1])
+        y1 = 0.5 * (lat_c[0, -1] + lat_c[-1, -1])
+        x2, x3 = lon_c[:, 0]
+        y2, y3 = lat_c[:, 0]
+
+    # total area of the triangle
+    A_expected = np.abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0)
+
+    ny, nx = data_src.shape[-2:]
+    coords_in_cell = []
+    data_src_in_cell = []
+
+    for jj in range(ny):
+        for ji in range(nx):
+
+            x = lon_src[jj, ji]
+            y = lat_src[jj, ji]
+
+            A1 = np.abs((x * (y2 - y3) + x2 * (y3 - y) + x3 * (y - y2)) / 2.0)
+            A2 = np.abs((x1 * (y - y3) + x * (y3 - y1) + x3 * (y1 - y)) / 2.0)
+            A3 = np.abs((x1 * (y2 - y) + x2 * (y - y1) + x * (y1 - y2)) / 2.0)
+
+            if np.abs(A1 + A2 + A3 - A_expected) < rtol * A_expected:
+                # check passed, adding point to list
+                coords_in_cell.append([lon_src[jj, ji], lat_src[jj, ji], 1.0])
+                data_src_in_cell.append(1.0 * data_src[jj, ji])
+
+    # count number of hits in cell
+    npts = len(data_src_in_cell)
+
+    if npts == 0:
+        dout = 1.0e20
+        dmin = 1.0e20
+        dmax = 1.0e20
+    else:
+        A = np.array(coords_in_cell)
+        d = np.array(data_src_in_cell)
+        dmin = d.min()
+        dmax = d.max()
+        if method == "median":
+            dout = np.median(d)
+        elif method == "mean":
+            dout = d.mean()  # assume identical weights for source cells to start
+
+    residual2 = np.zeros((1))
+    if compute_res:
+        if npts >= 3:  # we need at least 3 points to fit a plane
+            # plane fitting to get the residuals
+            fitcoefs, residual2, _, _ = np.linalg.lstsq(A, d)
+            if residual2 is None:
+                residual2 = 1.0e20 * np.ones((1))
+            if np.isnan(residual2):
+                residual2 = 1.0e20 * np.ones((1))
+
+    return dout, dmin, dmax, residual2[0], npts
 
 
 @njit()
