@@ -92,11 +92,11 @@ def compute_cell_topo_stats(
         sing_right = True
 
     if n_singular_pts >= 2:
-        print("WARNING: singular point or segment detected!!!")
-        out = np.array([1.0e36, 1.0e36, 1.0e36, 1.0e36, 1.0e36])
+        warn("singular point or segment detected!!!")
+        dout, dmin, dmax, residual2, npts = 1.0e36, 1.0e36, 1.0e36, 1.0e36, 0
     elif n_singular_pts == 1:
-        print("triangle detected")
-        out = compute_cell_topo_stats_triangle(
+        # use triangle algo
+        dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_triangle(
             lon_c,
             lat_c,
             lon_src,
@@ -110,9 +110,9 @@ def compute_cell_topo_stats(
             compute_res=compute_res,
         )
     elif n_singular_pts == 0:
-        print("parallelogram detected")
         # reorder points
         lon_c, lat_c = reorder_bounds(lon_c, lat_c)
+        # use parallelogram algo
         dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_parallelogram(
             lon_c,
             lat_c,
@@ -126,15 +126,16 @@ def compute_cell_topo_stats(
     else:
         raise ValueError("you should not arrive here")
 
-        out[0] = dout
-        out[1] = dmin
-        out[2] = dmax
-        out[3] = residual2
-        out[4] = float(npts)
+    out[0] = dout
+    out[1] = dmin
+    out[2] = dmax
+    out[3] = residual2
+    out[4] = float(npts)
 
     return out
 
 
+@njit
 def compute_cell_topo_stats_triangle(
     lon_c,
     lat_c,
@@ -147,7 +148,7 @@ def compute_cell_topo_stats_triangle(
     sing_right=False,
     method="median",
     compute_res=True,
-    tol=1e-16,
+    rtol=0.001,
 ):
 
     # first build triangle from degenerated parallelogram
@@ -192,8 +193,8 @@ def compute_cell_topo_stats_triangle(
             A2 = np.abs((x1 * (y - y3) + x * (y3 - y1) + x3 * (y1 - y)) / 2.0)
             A3 = np.abs((x1 * (y2 - y) + x2 * (y - y1) + x * (y1 - y2)) / 2.0)
 
-            if np.abs(A1 + A2 + A3 - A_expected) < tol:
-                # all checks passed, adding point to list
+            if np.abs(A1 + A2 + A3 - A_expected) < rtol * A_expected:
+                # check passed, adding point to list
                 coords_in_cell.append([lon_src[jj, ji], lat_src[jj, ji], 1.0])
                 data_src_in_cell.append(1.0 * data_src[jj, ji])
 
