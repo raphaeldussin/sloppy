@@ -66,6 +66,10 @@ import matplotlib.pyplot as plt
 plt.figure()
 plt.pcolormesh(out[0, :, :], vmax=-60)
 plt.colorbar()
+
+plt.figure()
+plt.pcolormesh(out[4, :, :])
+plt.colorbar()
 plt.show()
 
 from pyproj import CRS, Transformer
@@ -78,6 +82,10 @@ xx, yy = proj.transform(lon_model, lat_model)
 
 plt.figure()
 plt.pcolormesh(xx, yy, out[0, :, :], vmax=-60)
+plt.colorbar()
+
+plt.figure()
+plt.pcolormesh(xx, yy, out[4, :, :])
 plt.colorbar()
 plt.show()
 
