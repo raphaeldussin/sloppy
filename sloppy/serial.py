@@ -206,7 +206,6 @@ def compute_cell_topo_stats_triangle(
         dmin = 1.0e20
         dmax = 1.0e20
     else:
-        A = np.array(coords_in_cell)
         d = np.array(data_src_in_cell)
         dmin = d.min()
         dmax = d.max()
@@ -215,17 +214,11 @@ def compute_cell_topo_stats_triangle(
         elif method == "mean":
             dout = d.mean()  # assume identical weights for source cells to start
 
-    residual2 = np.zeros((1))
+    roughness = 0.0
     if compute_res:
-        if npts >= 3:  # we need at least 3 points to fit a plane
-            # plane fitting to get the residuals
-            fitcoefs, residual2, _, _ = np.linalg.lstsq(A, d)
-            if residual2 is None:
-                residual2 = 1.0e20 * np.ones((1))
-            if np.isnan(residual2):
-                residual2 = 1.0e20 * np.ones((1))
+        roughness = compute_roughness(coords_in_cell, data_src_in_cell)
 
-    return dout, dmin, dmax, residual2[0], npts
+    return dout, dmin, dmax, roughness, npts
 
 
 @njit()
@@ -358,7 +351,6 @@ def compute_cell_topo_stats_parallelogram(
         dmin = 1.0e20
         dmax = 1.0e20
     else:
-        A = np.array(coords_in_cell)
         d = np.array(data_src_in_cell)
         dmin = d.min()
         dmax = d.max()
@@ -367,17 +359,48 @@ def compute_cell_topo_stats_parallelogram(
         elif method == "mean":
             dout = d.mean()  # assume identical weights for source cells to start
 
-    residual2 = np.zeros((1))
+    roughness = 0.0
     if compute_res:
-        if npts >= 3:  # we need at least 3 points to fit a plane
-            # plane fitting to get the residuals
-            fitcoefs, residual2, _, _ = np.linalg.lstsq(A, d)
-            if residual2 is None:
-                residual2 = 1.0e20 * np.ones((1))
-            if np.isnan(residual2):
-                residual2 = 1.0e20 * np.ones((1))
+        roughness = compute_roughness(coords_in_cell, data_src_in_cell)
 
-    return dout, dmin, dmax, residual2[0], npts
+    return dout, dmin, dmax, roughness, npts
+
+
+@njit
+def compute_roughness(coords_in_cell, data_src_in_cell):
+    """compute the 'roughness' as the residual from a 2d linear fit to data
+
+    Args:
+    -----
+
+    coords_in_cell : list of 3 items list
+        triplets containing coordinates and order of fit, e.g.
+        [[x1, y1, 1], [x2, y2, 1], ... [xn, yn, 1]]
+        1 = linear fit to data
+    data_src_in_cell: list
+        data (elevation,...) for which to compute residual to fit, e.g.
+        [1035., 1589., 1457., ..., 1789.]
+
+    Returns:
+    --------
+
+    roughness: float
+        residual (in units^2) of fit to data
+    """
+
+    # init roughness to zero
+    roughness = 0.0
+    # we need at least 3 points to fit a plane so 4 are needed
+    # to have a residual
+    if len(coords_in_cell) >= 4:
+        # convert to numpy array to use linear algebra
+        A = np.array(coords_in_cell)
+        d = np.array(data_src_in_cell)
+        # plane fitting is done with least square fitting to data
+        fitcoefs, residual2, _, _ = np.linalg.lstsq(A, d)
+        roughness = residual2[0] if len(residual2) == 1 else 0.0
+
+    return roughness
 
 
 def find_nearest_point(lon_src, lat_src, lon_tgt, lat_tgt, tree=None, is_carth=False):
