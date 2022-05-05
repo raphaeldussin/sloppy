@@ -76,6 +76,11 @@ def compute_block(
                 topotree=topotree,
             )
 
+            #if len(topo_subsubset.flatten()) > 1e6:
+            #    print(f"large number of points {len(topo_subsubset.flatten())} for j,i = {jj}, {ji}")
+            #    print(lon_c)
+            #    print(lat_c)
+
             if len(topo_subsubset.flatten()) > 1:
                 out = compute_cell_topo_stats(
                     lon_c,
