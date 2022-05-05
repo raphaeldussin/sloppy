@@ -558,6 +558,10 @@ def reorder_bounds(lon_c, lat_c):
         lat_c (_type_): _description_
     """
 
+    if (lon_c[:, -1] - lon_c[:, 0]).min() <= -180.:
+        # we cross the zero line
+        return lon_c, lat_c
+
     lonmean = lon_c.mean()
     latmean = lat_c.mean()
 
