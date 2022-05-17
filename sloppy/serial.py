@@ -5,10 +5,10 @@ from warnings import warn
 
 
 def compute_cell_topo_stats(
-    lon_c,
-    lat_c,
-    lon_src,
-    lat_src,
+    x_bnds,
+    y_bnds,
+    x_src,
+    y_src,
     data_src,
     method="median",
     compute_res=True,
@@ -19,16 +19,16 @@ def compute_cell_topo_stats(
 
     Parameters
     ----------
-    lon_c : np.ndarray
-        2x2 array containing the longitudes of all 4 corners of the cell
-    lat_c : np.ndarray
-        2x2 array containing the latitudes of all 4 corners of the cell
-    lon_src : np.ndarray
-        2d array (ny, nx) containing the longitudes of the source topo data
-    lat_src : np.ndarray
-        2d array (ny, nx) containing the latitudes of the source topo data
+    x_bnds : np.ndarray
+        2x2 array containing the x-coord/longitudes of all 4 corners of the cell
+    y_bnds : np.ndarray
+        2x2 array containing the y-coord/latitudes of all 4 corners of the cell
+    x_src : np.ndarray
+        2d array (ny, nx) containing the x-coord/longitudes of the source data
+    y_src : np.ndarray
+        2d array (ny, nx) containing the y-coord/latitudes of the source data
     data_src : np.ndarray
-        2d array (ny, nx) containing the the source topo data
+        2d array (ny, nx) containing the the source data
     method (optional) : string
         estimation of cell bathy (median/mean). Defaults to median.
     compute_res (optional): bool
@@ -52,8 +52,8 @@ def compute_cell_topo_stats(
     out[4] = 0.0
     if len(data_src.flatten()) < 1:
         print("no points passed to algo")
-        print("lon", lon_c)
-        print("lat", lat_c)
+        print("x/lon", x_bnds)
+        print("y/lat", y_bnds)
         return out
 
     # detect singular points
@@ -64,29 +64,29 @@ def compute_cell_topo_stats(
     sing_right = False
 
     # upper point is singular
-    if np.allclose(lon_c[-1, -1], lon_c[-1, 0], atol=tol) and np.allclose(
-        lat_c[-1, -1], lat_c[-1, 0], atol=tol
+    if np.allclose(x_bnds[-1, -1], x_bnds[-1, 0], atol=tol) and np.allclose(
+        y_bnds[-1, -1], y_bnds[-1, 0], atol=tol
     ):
         n_singular_pts += 1
         sing_top = True
 
     # lower point is singular
-    if np.allclose(lon_c[0, -1], lon_c[0, 0], atol=tol) and np.allclose(
-        lat_c[0, -1], lat_c[0, 0], atol=tol
+    if np.allclose(x_bnds[0, -1], x_bnds[0, 0], atol=tol) and np.allclose(
+        y_bnds[0, -1], y_bnds[0, 0], atol=tol
     ):
         n_singular_pts += 1
         sing_bot = True
 
     # left point is singular
-    if np.allclose(lon_c[-1, 0], lon_c[0, 0], atol=tol) and np.allclose(
-        lat_c[-1, 0], lat_c[0, 0], atol=tol
+    if np.allclose(x_bnds[-1, 0], x_bnds[0, 0], atol=tol) and np.allclose(
+        y_bnds[-1, 0], y_bnds[0, 0], atol=tol
     ):
         n_singular_pts += 1
         sing_left = True
 
     # right point is singular
-    if np.allclose(lon_c[-1, -1], lon_c[0, -1], atol=tol) and np.allclose(
-        lat_c[-1, -1], lat_c[0, -1], atol=tol
+    if np.allclose(x_bnds[-1, -1], x_bnds[0, -1], atol=tol) and np.allclose(
+        y_bnds[-1, -1], y_bnds[0, -1], atol=tol
     ):
         n_singular_pts += 1
         sing_right = True
@@ -97,10 +97,10 @@ def compute_cell_topo_stats(
     elif n_singular_pts == 1:
         # use triangle algo
         dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_triangle(
-            lon_c,
-            lat_c,
-            lon_src,
-            lat_src,
+            x_bnds,
+            y_bnds,
+            x_src,
+            y_src,
             data_src,
             sing_top=sing_top,
             sing_bot=sing_bot,
@@ -111,13 +111,13 @@ def compute_cell_topo_stats(
         )
     elif n_singular_pts == 0:
         # reorder points
-        lon_c, lat_c = reorder_bounds(lon_c, lat_c)
+        x_bnds, y_bnds = reorder_bounds(x_bnds, y_bnds)
         # use parallelogram algo
         dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_parallelogram(
-            lon_c,
-            lat_c,
-            lon_src,
-            lat_src,
+            x_bnds,
+            y_bnds,
+            x_src,
+            y_src,
             data_src,
             method=method,
             compute_res=compute_res,
@@ -137,10 +137,10 @@ def compute_cell_topo_stats(
 
 @njit
 def compute_cell_topo_stats_triangle(
-    lon_c,
-    lat_c,
-    lon_src,
-    lat_src,
+    x_bnds,
+    y_bnds,
+    x_src,
+    y_src,
     data_src,
     sing_top=False,
     sing_bot=False,
@@ -153,28 +153,28 @@ def compute_cell_topo_stats_triangle(
 
     # first build triangle from degenerated parallelogram
     if sing_top:
-        x1 = 0.5 * (lon_c[-1, 0] + lon_c[-1, -1])
-        y1 = 0.5 * (lat_c[-1, 0] + lat_c[-1, -1])
-        x2, x3 = lon_c[0, :]
-        y2, y3 = lat_c[0, :]
+        x1 = 0.5 * (x_bnds[-1, 0] + x_bnds[-1, -1])
+        y1 = 0.5 * (y_bnds[-1, 0] + y_bnds[-1, -1])
+        x2, x3 = x_bnds[0, :]
+        y2, y3 = y_bnds[0, :]
 
     if sing_bot:
-        x1 = 0.5 * (lon_c[0, 0] + lon_c[0, -1])
-        y1 = 0.5 * (lat_c[0, 0] + lat_c[0, -1])
-        x2, x3 = lon_c[-1, :]
-        y2, y3 = lat_c[-1, :]
+        x1 = 0.5 * (x_bnds[0, 0] + x_bnds[0, -1])
+        y1 = 0.5 * (y_bnds[0, 0] + y_bnds[0, -1])
+        x2, x3 = x_bnds[-1, :]
+        y2, y3 = y_bnds[-1, :]
 
     if sing_left:
-        x1 = 0.5 * (lon_c[0, 0] + lon_c[-1, 0])
-        y1 = 0.5 * (lat_c[0, 0] + lat_c[-1, 0])
-        x2, x3 = lon_c[:, -1]
-        y2, y3 = lat_c[:, -1]
+        x1 = 0.5 * (x_bnds[0, 0] + x_bnds[-1, 0])
+        y1 = 0.5 * (y_bnds[0, 0] + y_bnds[-1, 0])
+        x2, x3 = x_bnds[:, -1]
+        y2, y3 = y_bnds[:, -1]
 
     if sing_right:
-        x1 = 0.5 * (lon_c[0, -1] + lon_c[-1, -1])
-        y1 = 0.5 * (lat_c[0, -1] + lat_c[-1, -1])
-        x2, x3 = lon_c[:, 0]
-        y2, y3 = lat_c[:, 0]
+        x1 = 0.5 * (x_bnds[0, -1] + x_bnds[-1, -1])
+        y1 = 0.5 * (y_bnds[0, -1] + y_bnds[-1, -1])
+        x2, x3 = x_bnds[:, 0]
+        y2, y3 = y_bnds[:, 0]
 
     # total area of the triangle
     A_expected = np.abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0)
@@ -186,8 +186,8 @@ def compute_cell_topo_stats_triangle(
     for jj in range(ny):
         for ji in range(nx):
 
-            x = lon_src[jj, ji]
-            y = lat_src[jj, ji]
+            x = x_src[jj, ji]
+            y = y_src[jj, ji]
 
             A1 = np.abs((x * (y2 - y3) + x2 * (y3 - y) + x3 * (y - y2)) / 2.0)
             A2 = np.abs((x1 * (y - y3) + x * (y3 - y1) + x3 * (y1 - y)) / 2.0)
@@ -195,7 +195,7 @@ def compute_cell_topo_stats_triangle(
 
             if np.abs(A1 + A2 + A3 - A_expected) < rtol * A_expected:
                 # check passed, adding point to list
-                coords_in_cell.append([lon_src[jj, ji], lat_src[jj, ji], 1.0])
+                coords_in_cell.append([x_src[jj, ji], y_src[jj, ji], 1.0])
                 data_src_in_cell.append(1.0 * data_src[jj, ji])
 
     # count number of hits in cell
@@ -223,10 +223,10 @@ def compute_cell_topo_stats_triangle(
 
 @njit()
 def compute_cell_topo_stats_parallelogram(
-    lon_c,
-    lat_c,
-    lon_src,
-    lat_src,
+    x_bnds,
+    y_bnds,
+    x_src,
+    y_src,
     data_src,
     method="median",
     eps=1e-16,
@@ -237,16 +237,16 @@ def compute_cell_topo_stats_parallelogram(
 
     Parameters
     ----------
-    lon_c : np.ndarray
-        2x2 array containing the longitudes of all 4 corners of the cell
-    lat_c : np.ndarray
-        2x2 array containing the latitudes of all 4 corners of the cell
-    lon_src : np.ndarray
-        2d array (ny, nx) containing the longitudes of the source topo data
-    lat_src : np.ndarray
-        2d array (ny, nx) containing the latitudes of the source topo data
+    x_bnds : np.ndarray
+        2x2 array containing the x-coord/longitudes of all 4 corners of the cell
+    y_bnds : np.ndarray
+        2x2 array containing the y-coord/latitudes of all 4 corners of the cell
+    x_src : np.ndarray
+        2d array (ny, nx) containing the x-coord/longitudes of the source data
+    y_src : np.ndarray
+        2d array (ny, nx) containing the y-coord/latitudes of the source data
     data_src : np.ndarray
-        2d array (ny, nx) containing the the source topo data
+        2d array (ny, nx) containing the the source data
     method (optional) : string
         estimation of cell bathy (median/mean). Defaults to median.
     eps (optional): float
@@ -271,39 +271,39 @@ def compute_cell_topo_stats_parallelogram(
         for jj in range(ny):
             for ji in range(nx):
 
-                lat_lower_bnd = lat_c[0, 0] + (lon_src[jj, ji] - lon_c[0, 0]) * (
-                    (lat_c[0, -1] - lat_c[0, 0])
-                    / np.maximum(lon_c[0, -1] - lon_c[0, 0], eps)
+                y_lower_bnd = y_bnds[0, 0] + (x_src[jj, ji] - x_bnds[0, 0]) * (
+                    (y_bnds[0, -1] - y_bnds[0, 0])
+                    / np.maximum(x_bnds[0, -1] - x_bnds[0, 0], eps)
                 )
-                lat_upper_bnd = lat_c[-1, 0] + (lon_src[jj, ji] - lon_c[-1, 0]) * (
-                    (lat_c[-1, -1] - lat_c[-1, 0])
-                    / np.maximum(lon_c[-1, -1] - lon_c[-1, 0], eps)
+                y_upper_bnd = y_bnds[-1, 0] + (x_src[jj, ji] - x_bnds[-1, 0]) * (
+                    (y_bnds[-1, -1] - y_bnds[-1, 0])
+                    / np.maximum(x_bnds[-1, -1] - x_bnds[-1, 0], eps)
                 )
 
-                lat_lower_bnd_c = np.minimum(lat_lower_bnd, lat_upper_bnd)
-                lat_upper_bnd_c = np.maximum(lat_lower_bnd, lat_upper_bnd)
+                y_lower_bnd_c = np.minimum(y_lower_bnd, y_upper_bnd)
+                y_upper_bnd_c = np.maximum(y_lower_bnd, y_upper_bnd)
 
-                if (lat_src[jj, ji] >= lat_lower_bnd_c) and (
-                    lat_src[jj, ji] <= lat_upper_bnd_c
+                if (y_src[jj, ji] >= y_lower_bnd_c) and (
+                    y_src[jj, ji] <= y_upper_bnd_c
                 ):
 
-                    lon_right_bnd = lon_c[0, -1] + (lat_src[jj, ji] - lat_c[0, -1]) * (
-                        (lon_c[-1, -1] - lon_c[0, -1])
-                        / np.maximum(lat_c[-1, -1] - lat_c[0, -1], eps)
+                    x_right_bnd = x_bnds[0, -1] + (y_src[jj, ji] - y_bnds[0, -1]) * (
+                        (x_bnds[-1, -1] - x_bnds[0, -1])
+                        / np.maximum(y_bnds[-1, -1] - y_bnds[0, -1], eps)
                     )
 
-                    lon_left_bnd = lon_c[0, 0] + (lat_src[jj, ji] - lat_c[0, 0]) * (
-                        (lon_c[-1, 0] - lon_c[0, 0])
-                        / np.maximum(lat_c[-1, 0] - lat_c[0, 0], eps)
+                    x_left_bnd = x_bnds[0, 0] + (y_src[jj, ji] - y_bnds[0, 0]) * (
+                        (x_bnds[-1, 0] - x_bnds[0, 0])
+                        / np.maximum(y_bnds[-1, 0] - y_bnds[0, 0], eps)
                     )
 
-                    lon_left_bnd_c = np.minimum(lon_left_bnd, lon_right_bnd)
-                    lon_right_bnd_c = np.maximum(lon_left_bnd, lon_right_bnd)
+                    x_left_bnd_c = np.minimum(x_left_bnd, x_right_bnd)
+                    x_right_bnd_c = np.maximum(x_left_bnd, x_right_bnd)
 
-                    if (lon_src[jj, ji] >= lon_left_bnd_c) and (
-                        lon_src[jj, ji] <= lon_right_bnd_c
+                    if (x_src[jj, ji] >= x_left_bnd_c) and (
+                        x_src[jj, ji] <= x_right_bnd_c
                     ):
-                        coords_in_cell.append([lon_src[jj, ji], lat_src[jj, ji], 1.0])
+                        coords_in_cell.append([x_src[jj, ji], y_src[jj, ji], 1.0])
                         data_src_in_cell.append(1.0 * data_src[jj, ji])
 
     elif algo == "fast":
@@ -311,35 +311,36 @@ def compute_cell_topo_stats_parallelogram(
         for jj in range(ny):
             for ji in range(nx):
                 # test if point falls in the cell, defined by 4 segments
-                lat_lower_bnd = lat_c[0, 0] + (lon_src[jj, ji] - lon_c[0, 0]) * (
-                    (lat_c[0, -1] - lat_c[0, 0]) / (lon_c[0, -1] - lon_c[0, 0])
+                y_lower_bnd = y_bnds[0, 0] + (x_src[jj, ji] - x_bnds[0, 0]) * (
+                    (y_bnds[0, -1] - y_bnds[0, 0]) / (x_bnds[0, -1] - x_bnds[0, 0])
                 )
 
-                if lat_src[jj, ji] >= lat_lower_bnd:
-                    lon_right_bnd = lon_c[0, -1] + (lat_src[jj, ji] - lat_c[0, -1]) * (
-                        (lon_c[-1, -1] - lon_c[0, -1]) / (lat_c[-1, -1] - lat_c[0, -1])
+                if y_src[jj, ji] >= y_lower_bnd:
+                    x_right_bnd = x_bnds[0, -1] + (y_src[jj, ji] - y_bnds[0, -1]) * (
+                        (x_bnds[-1, -1] - x_bnds[0, -1])
+                        / (y_bnds[-1, -1] - y_bnds[0, -1])
                     )
 
-                    if lon_src[jj, ji] <= lon_right_bnd:
-                        lat_upper_bnd = lat_c[-1, 0] + (
-                            lon_src[jj, ji] - lon_c[-1, 0]
+                    if x_src[jj, ji] <= x_right_bnd:
+                        y_upper_bnd = y_bnds[-1, 0] + (
+                            x_src[jj, ji] - x_bnds[-1, 0]
                         ) * (
-                            (lat_c[-1, -1] - lat_c[-1, 0])
-                            / (lon_c[-1, -1] - lon_c[-1, 0])
+                            (y_bnds[-1, -1] - y_bnds[-1, 0])
+                            / (x_bnds[-1, -1] - x_bnds[-1, 0])
                         )
 
-                        if lat_src[jj, ji] <= lat_upper_bnd:
-                            lon_left_bnd = lon_c[0, 0] + (
-                                lat_src[jj, ji] - lat_c[0, 0]
+                        if y_src[jj, ji] <= y_upper_bnd:
+                            x_left_bnd = x_bnds[0, 0] + (
+                                y_src[jj, ji] - y_bnds[0, 0]
                             ) * (
-                                (lon_c[-1, 0] - lon_c[0, 0])
-                                / (lat_c[-1, 0] - lat_c[0, 0])
+                                (x_bnds[-1, 0] - x_bnds[0, 0])
+                                / (y_bnds[-1, 0] - y_bnds[0, 0])
                             )
 
-                            if lon_src[jj, ji] >= lon_left_bnd:
+                            if x_src[jj, ji] >= x_left_bnd:
                                 # all checks passed, adding point to list
                                 coords_in_cell.append(
-                                    [lon_src[jj, ji], lat_src[jj, ji], 1.0]
+                                    [x_src[jj, ji], y_src[jj, ji], 1.0]
                                 )
                                 data_src_in_cell.append(1.0 * data_src[jj, ji])
 
@@ -403,19 +404,19 @@ def compute_roughness(coords_in_cell, data_src_in_cell):
     return roughness
 
 
-def find_nearest_point(lon_src, lat_src, lon_tgt, lat_tgt, tree=None, is_carth=False):
+def find_nearest_point(x_src, y_src, x_tgt, y_tgt, tree=None, is_carth=False):
     """Function to find the nearest point on the source grid given a
     value on the target grid
 
     Parameters
     ----------
-    lon_src : np.ndarray
-        1-D or 2-D array of longitude values in the source grid
-    lat_src :
-        1-D or 2-D array of latitude values in the source grid
-    lon_tgt : float
+    x_src : np.ndarray
+        1-D or 2-D array of x-coord/longitude values in the source grid
+    y_src :
+        1-D or 2-D array of y-coord/latitude values in the source grid
+    x_tgt : float
         Longitude value to find on the source grid
-    lat_tgt : float
+    y_tgt : float
         Latitude
     tree : scipy.Kdtree object, optional
         Precalculated kdtree object for 2D coordinates, by default None
@@ -431,46 +432,44 @@ def find_nearest_point(lon_src, lat_src, lon_tgt, lat_tgt, tree=None, is_carth=F
 
     if not is_carth:
         # standardize longitude to positive-definite values
-        lon_src = np.mod(lon_src + 360, 360)
-        lon_tgt = np.mod(lon_tgt + 360, 360)
+        x_src = np.mod(x_src + 360, 360)
+        x_tgt = np.mod(x_tgt + 360, 360)
 
     # use a kdtree to find indicies if source coordinates are 2-dimensional
-    if len(lon_src.shape) == 2:
+    if len(x_src.shape) == 2:
         if tree is None:
             raise ValueError("you must supply a kdtree")
-        _, ravel_index = tree.query([lon_tgt, lat_tgt], k=1)
-        indy, indx = np.unravel_index(ravel_index, lon_src.shape)
+        _, ravel_index = tree.query([x_tgt, y_tgt], k=1)
+        indy, indx = np.unravel_index(ravel_index, x_src.shape)
 
     # use a simple locator if source coordinates are vectors
-    elif len(lon_src.shape) == 1:
-        indx = (np.abs(lon_src - lon_tgt)).argmin()
-        indy = (np.abs(lat_src - lat_tgt)).argmin()
+    elif len(x_src.shape) == 1:
+        indx = (np.abs(x_src - x_tgt)).argmin()
+        indy = (np.abs(y_src - y_tgt)).argmin()
 
     return indx, indy
 
 
-def find_geographical_bounds(lon_c, lat_c):
-    """find the bounding box"""
+def find_geographical_bounds(x_bnds, y_bnds):
+    """find the bounding box in which to subset source data,
+    given by min/max of bounds of cell"""
 
     # this is the simple case where there is no periodicity to worry about
-    lonmin = lon_c.min()
-    lonmax = lon_c.max()
-    latmin = lat_c.min()
-    latmax = lat_c.max()
+    xmin = x_bnds.min()
+    xmax = x_bnds.max()
+    ymin = y_bnds.min()
+    ymax = y_bnds.max()
 
-    return lonmin, lonmax, latmin, latmax
+    return xmin, xmax, ymin, ymax
 
 
-def correct_for_poles_j_indices(jmin, jmax):
-    """make sure that jmin < jmax, this can happen in polar regions"""
+def correct_flipped_indices(kmin, kmax):
+    """make sure that kmin < kmax, this can happen near singular points (polar regions)"""
 
-    if jmin > jmax:
-        warn("flipping j indices")
+    kmin_corrected = kmax if kmin > kmax else kmin
+    kmax_corrected = kmin if kmin > kmax else kmax
 
-    jmin_corrected = jmax if jmin > jmax else jmin
-    jmax_corrected = jmin if jmin > jmax else jmax
-
-    return jmin_corrected, jmax_corrected
+    return kmin_corrected, kmax_corrected
 
 
 def correct_for_periodicity(imin, imax):
@@ -495,74 +494,84 @@ def correct_for_periodicity(imin, imax):
     return imin_corrected, imax_corrected, iroll
 
 
-def subset_input_data(
-    lon_c,
-    lat_c,
-    lon_in,
-    lat_in,
+def subset_source_data(
+    x_bnds,
+    y_bnds,
+    x_in,
+    y_in,
     data_in,
     is_carth=False,
-    is_stereo=False,
-    coords2d=False,
-    topotree=None,
+    srctree=None,
 ):
-    """_summary_
+    """subset the source data by finding the range of values for x/y in the cell,
+    then finding the indices of the bottom-left (SW) and top-right (NE) in the coords
+    of the source data, correct for periodicity and flipped indices if necessary.
 
     Args:
-        lon_c (_type_): _description_
-        lat_c (_type_): _description_
-        lon_in (_type_): _description_
-        lat_in (_type_): _description_
-        data_in (_type_): _description_
-        is_carth (bool, optional): _description_. Defaults to False.
-        is_stereo (bool, optional): _description_. Defaults to False.
-        coords2d (bool, optional): _description_. Defaults to False.
-        topotree (_type_, optional): _description_. Defaults to None.
+    -----
+
+    x_bnds : np.ndarray
+        2x2 array containing the x-coord/longitudes of all 4 corners of the cell
+    y_bnds : np.ndarray
+        2x2 array containing the y-coord/latitudes of all 4 corners of the cell
+    x_in : np.ndarray
+        2d array (ny, nx) containing the x-coord/longitudes of the source data
+    y_in : np.ndarray
+        2d array (ny, nx) containing the y-coord/latitudes of the source data
+    data_in : np.ndarray
+        2d array (ny, nx) containing the the source data
+    is_carth: bool
+        True for x/y in CRS, False for lat/lon
+    srctree: scipy.KDtree
+        KDtree with values of source x/y or lon/lat
+
     """
 
     # find geographical bounds of model cell
-    lonmin, lonmax, latmin, latmax = find_geographical_bounds(lon_c, lat_c)
+    xmin, xmax, ymin, ymax = find_geographical_bounds(x_bnds, y_bnds)
     # find index of SW corner in source data
     imin, jmin = find_nearest_point(
-        lon_in,
-        lat_in,
-        lonmin,
-        latmin,
-        tree=topotree,
+        x_in,
+        y_in,
+        xmin,
+        ymin,
+        tree=srctree,
         is_carth=is_carth,
     )
     # find index of NE corner in source data
     imax, jmax = find_nearest_point(
-        lon_in,
-        lat_in,
-        lonmax,
-        latmax,
-        tree=topotree,
+        x_in,
+        y_in,
+        xmax,
+        ymax,
+        tree=srctree,
         is_carth=is_carth,
     )
 
     if is_carth:
         # ensure growing order
-        imin, imax = correct_for_poles_j_indices(imin, imax)
-        jmin, jmax = correct_for_poles_j_indices(jmin, jmax)
+        imin, imax = correct_flipped_indices(imin, imax)
+        jmin, jmax = correct_flipped_indices(jmin, jmax)
         iroll = 0
 
-        lon_src = lon_in[jmin:jmax, imin:imax]
-        lat_src = lat_in[jmin:jmax, imin:imax]
+        x_src = x_in[jmin:jmax, imin:imax]
+        y_src = y_in[jmin:jmax, imin:imax]
     else:
-        jmin, jmax = correct_for_poles_j_indices(jmin, jmax)
+        jmin, jmax = correct_flipped_indices(jmin, jmax)
 
         # roll the array if necessary using periodicity
         imin, imax, iroll = correct_for_periodicity(imin, imax)
 
-        if coords2d:
-            lon_subsubset = np.roll(lon_in, iroll, axis=-1)[jmin:jmax, imin:imax]
-            lat_subsubset = np.roll(lat_in, iroll, axis=-1)[jmin:jmax, imin:imax]
-            lon_src, lat_src = lon_subsubset, lat_subsubset
+        if len(x_in.shape) == 2:
+            x_subsubset = np.roll(x_in, iroll, axis=-1)[jmin:jmax, imin:imax]
+            y_subsubset = np.roll(y_in, iroll, axis=-1)[jmin:jmax, imin:imax]
+            x_src, y_src = x_subsubset, y_subsubset
+        elif len(x_in.shape) == 1:
+            x_subsubset = np.roll(x_in, iroll, axis=0)[imin:imax]
+            y_subsubset = y_in[jmin:jmax]
+            x_src, y_src = np.meshgrid(x_subsubset, y_subsubset)
         else:
-            lon_subsubset = np.roll(lon_in, iroll, axis=0)[imin:imax]
-            lat_subsubset = lat_in[jmin:jmax]
-            lon_src, lat_src = np.meshgrid(lon_subsubset, lat_subsubset)
+            raise ValueError("x/y must be 1d or 2d arrays")
 
     # this is for 1d lon/lat on source grid, need to expand to 2d lon/lat
     if iroll != 0:
@@ -570,40 +579,40 @@ def subset_input_data(
     else:
         topo_subsubset = data_in[jmin:jmax, imin:imax]
 
-    return lon_src, lat_src, topo_subsubset
+    return x_src, y_src, topo_subsubset
 
 
-def reorder_bounds(lon_c, lat_c):
+def reorder_bounds(x_bnds, y_bnds):
     """_summary_
 
     Args:
-        lon_c (_type_): _description_
-        lat_c (_type_): _description_
+        x_bnds (_type_): _description_
+        y_bnds (_type_): _description_
     """
 
-    #if (lon_c[:, -1] - lon_c[:, 0]).min() <= -180.:
+    #if (x_bnds[:, -1] - x_bnds[:, 0]).min() <= -180.:  # revisit this for non lat/lon coords
     #    # we cross the zero line
-    #    return lon_c, lat_c
+    #    return x_bnds, y_bnds
 
-    lonmean = lon_c.mean()
-    latmean = lat_c.mean()
+    xmean = x_bnds.mean()
+    ymean = y_bnds.mean()
 
-    angle = np.arctan2(lat_c - latmean, lon_c - lonmean)
+    angle = np.arctan2(y_bnds - ymean, x_bnds - xmean)
     idx_sorted = np.argsort(np.mod(angle.flatten() + 2 * np.pi, 2 * np.pi))
 
-    topright = np.unravel_index(idx_sorted[0], lon_c.shape)
-    topleft = np.unravel_index(idx_sorted[1], lon_c.shape)
-    botleft = np.unravel_index(idx_sorted[2], lon_c.shape)
-    botright = np.unravel_index(idx_sorted[3], lon_c.shape)
+    topright = np.unravel_index(idx_sorted[0], x_bnds.shape)
+    topleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
+    botleft = np.unravel_index(idx_sorted[2], x_bnds.shape)
+    botright = np.unravel_index(idx_sorted[3], x_bnds.shape)
 
-    lon_c_reorder = np.array(
-        [[lon_c[botleft], lon_c[botright]], [lon_c[topleft], lon_c[topright]]]
+    x_bnds_reorder = np.array(
+        [[x_bnds[botleft], x_bnds[botright]], [x_bnds[topleft], x_bnds[topright]]]
     )
-    lat_c_reorder = np.array(
-        [[lat_c[botleft], lat_c[botright]], [lat_c[topleft], lat_c[topright]]]
+    y_bnds_reorder = np.array(
+        [[y_bnds[botleft], y_bnds[botright]], [y_bnds[topleft], y_bnds[topright]]]
     )
 
-    assert lon_c.shape == lon_c_reorder.shape
-    assert lat_c.shape == lat_c_reorder.shape
+    assert x_bnds.shape == x_bnds_reorder.shape
+    assert y_bnds.shape == y_bnds_reorder.shape
 
-    return lon_c_reorder, lat_c_reorder
+    return x_bnds_reorder, y_bnds_reorder
