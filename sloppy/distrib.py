@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from sloppy.serial import (
     compute_cell_topo_stats,
-    subset_input_data,
+    subset_source_data,
 )
 
 
@@ -52,11 +52,11 @@ def compute_block(
             topo_lon_subset360 = np.mod(topo_lon_subset + 360, 360)
         else:
             topo_lon_subset360 = topo_lon_subset
-        topotree = KDTree(
+        srctree = KDTree(
             list(zip(topo_lon_subset360.flatten(), topo_lat_subset.flatten()))
         )
     else:
-        topotree = None
+        srctree = None
 
     # loop over all grid cells
     for jj in tqdm(range(nyb - 1)):
@@ -64,16 +64,14 @@ def compute_block(
             lon_c = lon_model_block[jj : jj + 2, ji : ji + 2]
             lat_c = lat_model_block[jj : jj + 2, ji : ji + 2]
 
-            lon_src, lat_src, topo_subsubset = subset_input_data(
+            lon_src, lat_src, topo_subsubset = subset_source_data(
                 lon_c,
                 lat_c,
                 topo_lon_subset,
                 topo_lat_subset,
                 topo_subset,
                 is_carth=is_carth,
-                is_stereo=is_stereo,
-                coords2d=coords2d,
-                topotree=topotree,
+                srctree=srctree,
             )
 
             if len(topo_subsubset.flatten()) > 1:

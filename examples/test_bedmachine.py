@@ -103,11 +103,22 @@ out = compute_block(
     is_stereo=True,
     is_carth=True,
     PROJSTRING=PROJSTRING,
-    residual=False,
+    residual=True,
     algo="sturdy",
 )
 
 plt.figure()
 plt.pcolormesh(xx, yy, out[0, :, :], vmax=5000)
 plt.colorbar()
+
+plt.figure()
+plt.pcolormesh(xx, yy, out[3, :, :])
+plt.colorbar()
+
+plt.figure()
+plt.pcolormesh(xx, yy, out[4, :, :])
+plt.colorbar()
+
+
+
 plt.show()
