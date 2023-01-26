@@ -103,3 +103,35 @@ def test_carth_geom():
     data_src = 10 * np.ones((1, 1))
     out = compute_cell_topo_stats(x_c, y_c, x_src, y_src, data_src, compute_res=False)
     assert out[4] == 1
+
+
+def test_reorder_bounds():
+    from sloppy.serial import reorder_bounds
+
+    lon = np.array([[1., 2.], [1., 2.]])
+    lat = np.array([[10., 10.], [11., 11.]])
+
+    lon_o, lat_o = reorder_bounds(lon, lat)
+
+    assert np.allclose(lon_o, lon)
+    assert np.allclose(lat_o, lat)
+
+    lon = np.array([[2., 1.], [1., 2.]])
+    lat = np.array([[10., 10.], [11., 11.]])
+
+    lon_o, lat_o = reorder_bounds(lon, lat)
+
+    assert lon_o[0,0] == 1.
+    assert lat_o[0,0] == 10.
+
+    assert lon_o[-1,-1] == 2.
+    assert lat_o[-1,-1] == 11.
+
+    lon = np.array([[359., 1.], [359., 1.]])
+    lat = np.array([[10., 10.], [11., 11.]])
+
+    lon_o, lat_o = reorder_bounds(lon, lat)
+
+    assert np.allclose(lon_o, lon)
+    assert np.allclose(lat_o, lat)
+
