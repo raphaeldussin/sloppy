@@ -36,7 +36,7 @@ PROJSTRING = "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +da
 
 # bedmachine + reduction
 bedmachine = xr.open_dataset(
-    "/media/raphael/L2/topography/BedMachineAntarctica_2020-07-15_v02.nc"
+    "/local2/home/BedMachineAntarctica_2020-07-15_v02.nc"
 )
 
 bedmachine_10x = bedmachine.isel(x=slice(0, -1, 10), y=slice(0, -1, 10))
@@ -46,7 +46,7 @@ bedmachine_5x = bedmachine.isel(x=slice(0, -1, 5), y=slice(0, -1, 5))
 bedmachine_5x = add_lon_lat(bedmachine_5x, PROJSTRING)
 
 # read lon/lat MOM6 grid corners
-hgrid = xr.open_dataset("sosc73E82S_10rr.nc")
+hgrid = xr.open_dataset("/home/Olga.Sergienko/gridtopo_sandbox/sosc73E82S_10rr.nc")
 # right
 lon_model = hgrid["x"][0::2, 0::2]
 lat_model = hgrid["y"][0::2, 0::2]
