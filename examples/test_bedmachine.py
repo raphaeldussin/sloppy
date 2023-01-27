@@ -32,7 +32,7 @@ def add_lon_lat(ds, PROJSTRING, x="x", y="y", chunks={}):
 PROJSTRING = "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
 
 bedmachine = xr.open_dataset(
-    "/media/raphael/L2/topography/BedMachineAntarctica_2020-07-15_v02.nc"
+    "/local2/home/BedMachineAntarctica_2020-07-15_v02.nc"
 )
 
 bedmachine_10x = bedmachine.isel(x=slice(0, -1, 10), y=slice(0, -1, 10))
@@ -103,11 +103,22 @@ out = compute_block(
     is_stereo=True,
     is_carth=True,
     PROJSTRING=PROJSTRING,
-    residual=False,
+    residual=True,
     algo="sturdy",
 )
 
 plt.figure()
 plt.pcolormesh(xx, yy, out[0, :, :], vmax=5000)
 plt.colorbar()
+
+plt.figure()
+plt.pcolormesh(xx, yy, out[3, :, :])
+plt.colorbar()
+
+plt.figure()
+plt.pcolormesh(xx, yy, out[4, :, :])
+plt.colorbar()
+
+
+
 plt.show()

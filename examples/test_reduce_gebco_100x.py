@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from sloppy.distrib import compute_block
 
-gebco = xr.open_dataset("/media/raphael/L2/topography/GEBCO_2021.nc")
+gebco = xr.open_dataset("/local2/home/GEBCO_2021/without_bedmachine/GEBCO_2021.nc")
 gebco_10x = gebco["elevation"].isel(lon=slice(0, -1, 10), lat=slice(0, -1, 10))
 
 # make up a target grid
