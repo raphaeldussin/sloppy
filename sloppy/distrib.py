@@ -11,6 +11,44 @@ from sloppy.serial import (
 )
 
 
+def compute_block_brute(
+    lon_model_block,
+    lat_model_block,
+    topo_subset,
+    topo_lon_subset,
+    topo_lat_subset,
+    is_carth=False,
+    is_stereo=False,
+    PROJSTRING=None,
+    residual=True,
+    algo="fast",
+):
+
+
+    nyb, nxb = lon_model_block.shape  # number of corners = N+1, M+1 number of centers
+    h_out = np.empty((5, nyb - 1, nxb - 1))
+
+    # loop over all grid cells
+    for jj in tqdm(range(nyb - 1)):
+        for ji in range(nxb - 1):
+            lon_c = lon_model_block[jj : jj + 2, ji : ji + 2]
+            lat_c = lat_model_block[jj : jj + 2, ji : ji + 2]
+
+            out = compute_cell_topo_stats(
+                lon_c,
+                lat_c,
+                topo_lon_subset,
+                topo_lat_subset,
+                topo_subset,
+                compute_res=residual,
+                algo=algo,
+            )
+
+            h_out[:, jj, ji] = out
+
+    return h_out
+
+
 def compute_block(
     lon_model_block,
     lat_model_block,
