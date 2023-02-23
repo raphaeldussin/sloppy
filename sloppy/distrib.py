@@ -102,7 +102,7 @@ def compute_block(
 
     coords2d = True if len(topo_lon_subset.shape) == 2 else False
 
-    if coords2d:
+    if coords2d:  # also not carth
         srctree = KDTree(
             list(zip(topo_lon_subset.flatten(), topo_lat_subset.flatten()))
         )

@@ -580,8 +580,16 @@ def subset_source_data(
         jmin, jmax = correct_flipped_indices(jmin, jmax)
         iroll = 0
 
-        x_src = x_in[jmin:jmax, imin:imax]
-        y_src = y_in[jmin:jmax, imin:imax]
+        if len(x_in.shape) == 2:
+            x_src = x_in[jmin:jmax, imin:imax]
+            y_src = y_in[jmin:jmax, imin:imax]
+        elif len(x_in.shape) == 1:
+            x_subsubset = x_in[imin:imax]
+            y_subsubset = y_in[jmin:jmax]
+            x_src = x_subsubset
+            y_src = y_subsubset
+        else:
+            raise ValueError("x/y must be 1d or 2d arrays")
     else:
         jmin, jmax = correct_flipped_indices(jmin, jmax)
 
@@ -595,7 +603,8 @@ def subset_source_data(
         elif len(x_in.shape) == 1:
             x_subsubset = np.roll(x_in, iroll, axis=0)[imin:imax]
             y_subsubset = y_in[jmin:jmax]
-            x_src, y_src = np.meshgrid(x_subsubset, y_subsubset)
+            x_src = x_subsubset
+            y_src = y_subsubset
         else:
             raise ValueError("x/y must be 1d or 2d arrays")
 
