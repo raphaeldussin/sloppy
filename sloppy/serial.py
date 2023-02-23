@@ -117,12 +117,16 @@ def compute_cell_topo_stats(
     elif n_singular_pts == 0:
         if debug:
             print(f"before periodic adjustment, x_bnds = {x_bnds}")
-            print(f"before periodic adjustment, x_src min/max = {x_src.min()}, {x_src.max()}")
+            print(
+                f"before periodic adjustment, x_src min/max = {x_src.min()}, {x_src.max()}"
+            )
         if not is_carth:
             x_bnds, x_src = adjust_xcoord_across_discontinuity(x_bnds, x_src)
         if debug:
             print(f"after periodicadjustment, x_bnds = {x_bnds}")
-            print(f"after periodic adjustment, x_src min/max = {x_src.min()}, {x_src.max()}")
+            print(
+                f"after periodic adjustment, x_src min/max = {x_src.min()}, {x_src.max()}"
+            )
 
         # reorder bounds
         if debug:
@@ -632,12 +636,12 @@ def reorder_bounds(x_bnds, y_bnds):
     angle_pos = np.mod(angle.flatten() + 2 * np.pi, 2 * np.pi)
     idx_sorted = np.argsort(angle_pos)
 
-    if angle_pos[idx_sorted[0]] < np.pi /2:
+    if angle_pos[idx_sorted[0]] < np.pi / 2:
         topright = np.unravel_index(idx_sorted[0], x_bnds.shape)
         topleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
         botleft = np.unravel_index(idx_sorted[2], x_bnds.shape)
         botright = np.unravel_index(idx_sorted[3], x_bnds.shape)
-    elif angle_pos[idx_sorted[0]] > np.pi /2:
+    elif angle_pos[idx_sorted[0]] > np.pi / 2:
         topleft = np.unravel_index(idx_sorted[0], x_bnds.shape)
         botleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
         botright = np.unravel_index(idx_sorted[2], x_bnds.shape)
@@ -656,22 +660,21 @@ def reorder_bounds(x_bnds, y_bnds):
     return x_bnds_reorder, y_bnds_reorder
 
 
-def adjust_xcoord_across_discontinuity(x_bnds, x_src, xmax=360.):
-    """ change part of the x coordinate arrays to avoid discontinuity """
+def adjust_xcoord_across_discontinuity(x_bnds, x_src, xmax=360.0):
+    """change part of the x coordinate arrays to avoid discontinuity"""
 
     x_src_tmp = x_src.copy()
     x_bnds_tmp = x_bnds.copy()
 
-    corr_src=False
+    corr_src = False
     # test if any of the row pairs cross discontinuity (negative value)
-    if (x_bnds[1,1] - x_bnds[1,0] < 0) or (x_bnds[0,1] - x_bnds[0,0] < 0):
+    if (x_bnds[1, 1] - x_bnds[1, 0] < 0) or (x_bnds[0, 1] - x_bnds[0, 0] < 0):
         # change all points > xmax/2 using periodicity
-        x_bnds_tmp = np.where(x_bnds > xmax/2, x_bnds - xmax, x_bnds)
+        x_bnds_tmp = np.where(x_bnds > xmax / 2, x_bnds - xmax, x_bnds)
         # need to use periodicity to edit source points
-        corr_src=True
+        corr_src = True
 
     if corr_src:
-        x_src_tmp = np.where(x_src > xmax/2, x_src - xmax, x_src)
+        x_src_tmp = np.where(x_src > xmax / 2, x_src - xmax, x_src)
 
     return x_bnds_tmp, x_src_tmp
-

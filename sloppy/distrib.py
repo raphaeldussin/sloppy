@@ -8,7 +8,7 @@ from tqdm import tqdm
 from sloppy.serial import (
     compute_cell_topo_stats,
     subset_source_data,
-    adjust_xcoord_across_discontinuity
+    adjust_xcoord_across_discontinuity,
 )
 
 
@@ -23,8 +23,8 @@ def compute_block_brute(
     PROJSTRING=None,
     residual=True,
     algo="fast",
+    debug=False,
 ):
-
 
     nyb, nxb = lon_model_block.shape  # number of corners = N+1, M+1 number of centers
     h_out = np.empty((5, nyb - 1, nxb - 1))
@@ -33,15 +33,13 @@ def compute_block_brute(
         topo_lon_subset = np.mod(topo_lon_subset + 360, 360)
 
     if not is_carth:
-        lon_model_block = np.mod(lon_model_block + 360., 360.)
+        lon_model_block = np.mod(lon_model_block + 360.0, 360.0)
 
     # loop over all grid cells
     for jj in tqdm(range(nyb - 1)):
         for ji in range(nxb - 1):
             lon_c = lon_model_block[jj : jj + 2, ji : ji + 2]
             lat_c = lat_model_block[jj : jj + 2, ji : ji + 2]
-
-            debug=True if ((ji == 28) and (jj == 32)) else False
 
             out = compute_cell_topo_stats(
                 lon_c,
@@ -71,6 +69,7 @@ def compute_block(
     PROJSTRING=None,
     residual=True,
     algo="fast",
+    debug=False,
 ):
 
     nyb, nxb = lon_model_block.shape  # number of corners = N+1, M+1 number of centers
@@ -98,7 +97,7 @@ def compute_block(
         topo_lon_subset = np.mod(topo_lon_subset + 360, 360)
 
     if not is_carth:
-        lon_model_block = np.mod(lon_model_block + 360., 360.)
+        lon_model_block = np.mod(lon_model_block + 360.0, 360.0)
 
     coords2d = True if len(topo_lon_subset.shape) == 2 else False
 
@@ -109,14 +108,11 @@ def compute_block(
     else:
         srctree = None
 
-
     # loop over all grid cells
     for jj in tqdm(range(nyb - 1), dynamic_ncols=True):
         for ji in range(nxb - 1):
             lon_c = lon_model_block[jj : jj + 2, ji : ji + 2]
             lat_c = lat_model_block[jj : jj + 2, ji : ji + 2]
-
-            debug=True if ((ji == 40) and (jj == 40)) else False
 
             lon_src, lat_src, topo_subsubset = subset_source_data(
                 lon_c,
