@@ -65,6 +65,9 @@ def compute_cell_topo_stats(
     sing_left = False
     sing_right = False
 
+    if (len(x_bnds) != 2) and (len(y_bnds) != 2):
+        raise ValueError("bounds must be 2-d")
+
     # upper point is singular
     if np.allclose(x_bnds[-1, -1], x_bnds[-1, 0], atol=tol) and np.allclose(
         y_bnds[-1, -1], y_bnds[-1, 0], atol=tol
@@ -125,17 +128,11 @@ def compute_cell_topo_stats(
         if debug:
             print(f"before reorder bounds, x_bnds = {x_bnds}")
             print(f"before reorder bounds, y_bnds = {y_bnds}")
-        #if is_carth:
+
         x_bnds, y_bnds = reorder_bounds(x_bnds, y_bnds)
         if debug:
             print(f"after reorder bounds, x_bnds = {x_bnds}")
             print(f"after reorder bounds, y_bnds = {y_bnds}")
-        #if is_carth:
-        #    # reorder points
-        #    x_bnds, y_bnds = reorder_bounds(x_bnds, y_bnds)
-        #else:
-        #    # fix periodicity
-        #    x_bnds, x_src = adjust_xcoord_across_discontinuity(x_bnds, x_src)
         # use parallelogram algo
         dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_parallelogram(
             x_bnds,
@@ -551,8 +548,13 @@ def subset_source_data(
 
     """
 
+    # adjust longitude for periodicity
+    if not is_carth:
+        x_bnds, x_in = adjust_xcoord_across_discontinuity(x_bnds, x_in)
+
     # find geographical bounds of model cell
     xmin, xmax, ymin, ymax = find_geographical_bounds(x_bnds, y_bnds)
+
     # find index of SW corner in source data
     imin, jmin = find_nearest_point(
         x_in,
@@ -614,10 +616,6 @@ def reorder_bounds(x_bnds, y_bnds):
         y_bnds (_type_): _description_
     """
 
-    #if (x_bnds[:, -1] - x_bnds[:, 0]).min() <= -180.:  # revisit this for non lat/lon coords
-    #    # we cross the zero line
-    #    return x_bnds, y_bnds
-
     xmean = x_bnds.mean()
     ymean = y_bnds.mean()
 
@@ -635,13 +633,6 @@ def reorder_bounds(x_bnds, y_bnds):
         botleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
         botright = np.unravel_index(idx_sorted[2], x_bnds.shape)
         topright = np.unravel_index(idx_sorted[3], x_bnds.shape)
-
-
-    # original code has issues (reorder points that should not)
-    #topright = np.unravel_index(idx_sorted[0], x_bnds.shape)
-    #topleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
-    #botleft = np.unravel_index(idx_sorted[2], x_bnds.shape)
-    #botright = np.unravel_index(idx_sorted[3], x_bnds.shape)
 
     x_bnds_reorder = np.array(
         [[x_bnds[botleft], x_bnds[botright]], [x_bnds[topleft], x_bnds[topright]]]
@@ -661,11 +652,6 @@ def adjust_xcoord_across_discontinuity(x_bnds, x_src, xmax=360.):
 
     x_src_tmp = x_src.copy()
     x_bnds_tmp = x_bnds.copy()
-
-    # this does not always work
-    #if x_bnds[-1,-1] < x_bnds[-1,0]:
-    #    x_bnds_tmp[:,0] -= xmax
-    #    x_src_tmp = np.where(x_src_tmp > xmax/2, x_src - xmax, x_src)
 
     corr_src=False
     # test if any of the row pairs cross discontinuity (negative value)
