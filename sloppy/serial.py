@@ -14,6 +14,8 @@ def compute_cell_topo_stats(
     compute_res=True,
     tol=1e-6,
     algo="fast",
+    is_carth=False,
+    debug=False,
 ):
     """Compute the stats (h median/mean, hmin, hmax, h2) for one grid cell
 
@@ -63,6 +65,9 @@ def compute_cell_topo_stats(
     sing_left = False
     sing_right = False
 
+    if (len(x_bnds) != 2) and (len(y_bnds) != 2):
+        raise ValueError("bounds must be 2-d")
+
     # upper point is singular
     if np.allclose(x_bnds[-1, -1], x_bnds[-1, 0], atol=tol) and np.allclose(
         y_bnds[-1, -1], y_bnds[-1, 0], atol=tol
@@ -110,8 +115,28 @@ def compute_cell_topo_stats(
             compute_res=compute_res,
         )
     elif n_singular_pts == 0:
-        # reorder points
+        if debug:
+            print(f"before periodic adjustment, x_bnds = {x_bnds}")
+            print(
+                f"before periodic adjustment, x_src min/max = {x_src.min()}, {x_src.max()}"
+            )
+        if not is_carth:
+            x_bnds, x_src = adjust_xcoord_across_discontinuity(x_bnds, x_src)
+        if debug:
+            print(f"after periodicadjustment, x_bnds = {x_bnds}")
+            print(
+                f"after periodic adjustment, x_src min/max = {x_src.min()}, {x_src.max()}"
+            )
+
+        # reorder bounds
+        if debug:
+            print(f"before reorder bounds, x_bnds = {x_bnds}")
+            print(f"before reorder bounds, y_bnds = {y_bnds}")
+
         x_bnds, y_bnds = reorder_bounds(x_bnds, y_bnds)
+        if debug:
+            print(f"after reorder bounds, x_bnds = {x_bnds}")
+            print(f"after reorder bounds, y_bnds = {y_bnds}")
         # use parallelogram algo
         dout, dmin, dmax, residual2, npts = compute_cell_topo_stats_parallelogram(
             x_bnds,
@@ -485,7 +510,7 @@ def correct_for_periodicity(imin, imax):
     """
 
     if imin > imax:
-        warn("rolling i indices")
+        warn(f"rolling i indices for pair {imin},{imax}")
 
     iroll = -imax if imin > imax else 0
     imin_corrected = imin - imax if imin > imax else imin
@@ -527,8 +552,13 @@ def subset_source_data(
 
     """
 
+    # adjust longitude for periodicity
+    if not is_carth:
+        x_bnds, x_in = adjust_xcoord_across_discontinuity(x_bnds, x_in)
+
     # find geographical bounds of model cell
     xmin, xmax, ymin, ymax = find_geographical_bounds(x_bnds, y_bnds)
+
     # find index of SW corner in source data
     imin, jmin = find_nearest_point(
         x_in,
@@ -554,8 +584,16 @@ def subset_source_data(
         jmin, jmax = correct_flipped_indices(jmin, jmax)
         iroll = 0
 
-        x_src = x_in[jmin:jmax, imin:imax]
-        y_src = y_in[jmin:jmax, imin:imax]
+        if len(x_in.shape) == 2:
+            x_src = x_in[jmin:jmax, imin:imax]
+            y_src = y_in[jmin:jmax, imin:imax]
+        elif len(x_in.shape) == 1:
+            x_subsubset = x_in[imin:imax]
+            y_subsubset = y_in[jmin:jmax]
+            x_src = x_subsubset
+            y_src = y_subsubset
+        else:
+            raise ValueError("x/y must be 1d or 2d arrays")
     else:
         jmin, jmax = correct_flipped_indices(jmin, jmax)
 
@@ -569,7 +607,8 @@ def subset_source_data(
         elif len(x_in.shape) == 1:
             x_subsubset = np.roll(x_in, iroll, axis=0)[imin:imax]
             y_subsubset = y_in[jmin:jmax]
-            x_src, y_src = np.meshgrid(x_subsubset, y_subsubset)
+            x_src = x_subsubset
+            y_src = y_subsubset
         else:
             raise ValueError("x/y must be 1d or 2d arrays")
 
@@ -590,20 +629,23 @@ def reorder_bounds(x_bnds, y_bnds):
         y_bnds (_type_): _description_
     """
 
-    #if (x_bnds[:, -1] - x_bnds[:, 0]).min() <= -180.:  # revisit this for non lat/lon coords
-    #    # we cross the zero line
-    #    return x_bnds, y_bnds
-
     xmean = x_bnds.mean()
     ymean = y_bnds.mean()
 
     angle = np.arctan2(y_bnds - ymean, x_bnds - xmean)
-    idx_sorted = np.argsort(np.mod(angle.flatten() + 2 * np.pi, 2 * np.pi))
+    angle_pos = np.mod(angle.flatten() + 2 * np.pi, 2 * np.pi)
+    idx_sorted = np.argsort(angle_pos)
 
-    topright = np.unravel_index(idx_sorted[0], x_bnds.shape)
-    topleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
-    botleft = np.unravel_index(idx_sorted[2], x_bnds.shape)
-    botright = np.unravel_index(idx_sorted[3], x_bnds.shape)
+    if angle_pos[idx_sorted[0]] < np.pi / 2:
+        topright = np.unravel_index(idx_sorted[0], x_bnds.shape)
+        topleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
+        botleft = np.unravel_index(idx_sorted[2], x_bnds.shape)
+        botright = np.unravel_index(idx_sorted[3], x_bnds.shape)
+    elif angle_pos[idx_sorted[0]] > np.pi / 2:
+        topleft = np.unravel_index(idx_sorted[0], x_bnds.shape)
+        botleft = np.unravel_index(idx_sorted[1], x_bnds.shape)
+        botright = np.unravel_index(idx_sorted[2], x_bnds.shape)
+        topright = np.unravel_index(idx_sorted[3], x_bnds.shape)
 
     x_bnds_reorder = np.array(
         [[x_bnds[botleft], x_bnds[botright]], [x_bnds[topleft], x_bnds[topright]]]
@@ -616,3 +658,23 @@ def reorder_bounds(x_bnds, y_bnds):
     assert y_bnds.shape == y_bnds_reorder.shape
 
     return x_bnds_reorder, y_bnds_reorder
+
+
+def adjust_xcoord_across_discontinuity(x_bnds, x_src, xmax=360.0):
+    """change part of the x coordinate arrays to avoid discontinuity"""
+
+    x_src_tmp = x_src.copy()
+    x_bnds_tmp = x_bnds.copy()
+
+    corr_src = False
+    # test if any of the row pairs cross discontinuity (negative value)
+    if (x_bnds[1, 1] - x_bnds[1, 0] < 0) or (x_bnds[0, 1] - x_bnds[0, 0] < 0):
+        # change all points > xmax/2 using periodicity
+        x_bnds_tmp = np.where(x_bnds > xmax / 2, x_bnds - xmax, x_bnds)
+        # need to use periodicity to edit source points
+        corr_src = True
+
+    if corr_src:
+        x_src_tmp = np.where(x_src > xmax / 2, x_src - xmax, x_src)
+
+    return x_bnds_tmp, x_src_tmp

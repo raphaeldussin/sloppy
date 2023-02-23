@@ -127,7 +127,7 @@ def test_reorder_bounds():
     assert lon_o[-1,-1] == 2.
     assert lat_o[-1,-1] == 11.
 
-    lon = np.array([[359., 1.], [359., 1.]])
+    lon = np.array([[-1., 1.], [-1., 1.]])
     lat = np.array([[10., 10.], [11., 11.]])
 
     lon_o, lat_o = reorder_bounds(lon, lat)
