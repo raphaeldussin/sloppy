@@ -12,6 +12,44 @@ from sloppy.serial import (
 )
 
 
+def xblock(
+    da_topo,
+    da_lon_model,
+    da_lat_model,
+    topo_lon_name="lon",
+    topo_lat_name="lat",
+    is_carth=False,
+    is_stereo=False,
+    PROJSTRING=None,
+    compute_residual=True,
+    algo="fast",
+    debug=False,
+):
+
+    h_out = compute_block(da_lon_model.values,
+                          da_lat_model.values,
+                          da_topo.values,
+                          da_topo[topo_lon_name].values,
+                          da_topo[topo_lat_name].values,
+                          is_carth=is_carth,
+                          is_stereo=is_stereo,
+                          PROJSTRING=PROJSTRING,
+                          residual=compute_residual,
+                          algo=algo,
+                          debug=debug,
+                          )
+
+    ds_out = xr.Dataset()
+    ds_out["h"] = xr.DataArray(data=h_out[0,:,:], dims=("y", "x"))
+    ds_out["hmin"] =  xr.DataArray(data=h_out[1,:,:], dims=("y", "x"))
+    ds_out["hmax"] =  xr.DataArray(data=h_out[2,:,:], dims=("y", "x"))
+    ds_out["h2"] =  xr.DataArray(data=h_out[3,:,:], dims=("y", "x"))
+    ds_out["npts"] =  xr.DataArray(data=h_out[4,:,:], dims=("y", "x"))
+
+    return ds_out
+
+
+
 def compute_block_brute(
     lon_model_block,
     lat_model_block,
