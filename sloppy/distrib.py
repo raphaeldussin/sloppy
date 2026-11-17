@@ -3,7 +3,11 @@ from warnings import warn
 import numpy as np
 from scipy.spatial import KDTree
 import xarray as xr
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(iterable, **kwargs):
+        return iterable
 
 from sloppy.serial import (
     compute_cell_topo_stats,
